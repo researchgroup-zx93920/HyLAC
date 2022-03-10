@@ -5,7 +5,7 @@ IE533 Spring 2022, Group project; Samiran Kawtikwar, Wes Cravens, Yuechun Yang
 [UIUC Engineering GitLab Repository](https://gitlab.engr.illinois.edu/wbc3/ie533_project)
 
 
-## [Referencs](Reference)
+## [Reference](Reference)
 
 ## Dev notes
 
