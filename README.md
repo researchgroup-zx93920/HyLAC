@@ -12,7 +12,7 @@ IE533 Spring 2022, Group project; Samiran Kawtikwar, Wes Cravens, Yuechun Yang
 
 ### Scratch and Sandbox
 
-There is a `scratch` directory in the repo but it is 'ignored' so nothing in there should ever be
+There is a `Scratch` directory in the repo but it is 'ignored' so nothing in there should ever be
 commited unless someone does something very intentional.  Please don't do something very
 intentional.  Scratch is a great place to experiment with small throwaway efforst.  It's best to
 treat scratch as if it's always going to be ok if it get's deleted.
