@@ -2,7 +2,7 @@
 
 This is a good place to commit any research papers or other material that we need for reference.
 
-This README will serve as an index.  We'll add links to both local and remote references for eash
+This README will serve as an index.  We'll add links to both local and remote references for easy
 access.
 
 
