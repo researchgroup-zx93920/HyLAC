@@ -7,3 +7,4 @@ Scratch
 # Vim
 .swp
 .swo
+3rd_Party/tests/**
