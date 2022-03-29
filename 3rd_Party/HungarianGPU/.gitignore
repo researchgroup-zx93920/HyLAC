@@ -1,4 +1,5 @@
 HungarianCUDA
-*.txt
 LAP19
 .vscode/**
+*.txt
+../tests/HungarianCUDA
