@@ -31,6 +31,27 @@ int main(int argc, char **argv)
             }
             // cout << endl;
         }
+        //preprocessing 
+        double maxV = INT_MIN;              //find max value in first column
+        double *changeV = new double[N];    //adjusted value for each row
+        for (int i = 0; i < N; ++i)
+        {
+            maxV = max(maxV, C[i*N]);
+        }
+        for (int i = 0; i < N; ++i)
+        {
+            changeR[i] = maxV - C[i*N];
+        }
+        for (int i = 0; i < N; ++i)
+        {
+            for (int k = 0; k < N; ++k)
+            {
+                C[i*N+k] += changeR[i];     //creating first column of same numbers
+            }
+        }
+        for (int i = 0; i < N; ++i){
+            C[i*N] = 0;                     //creating first column of zeros
+        }
 
         cudaSafeCall(cudaGetDevice(&devid), "cuda device unavailable!", __LINE__, __FILE__);
         // printHostMatrix(C, N, N, "LAP costs as read");
