@@ -40,13 +40,13 @@ int main(int argc, char **argv)
         }
         for (int i = 0; i < N; ++i)
         {
-            changeR[i] = maxV - C[i*N];
+            changeV[i] = maxV - C[i*N];
         }
         for (int i = 0; i < N; ++i)
         {
             for (int k = 0; k < N; ++k)
             {
-                C[i*N+k] += changeR[i];     //creating first column of same numbers
+                C[i*N+k] += changeV[i];     //creating first column of same numbers
             }
         }
         for (int i = 0; i < N; ++i){
