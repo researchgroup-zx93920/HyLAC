@@ -31,7 +31,7 @@ int main(int argc, char **argv)
             }
             // cout << endl;
         }
-
+        
         cudaSafeCall(cudaGetDevice(&devid), "cuda device unavailable!", __LINE__, __FILE__);
         // printHostMatrix(C, N, N, "LAP costs as read");
         double *d_C = nullptr;
