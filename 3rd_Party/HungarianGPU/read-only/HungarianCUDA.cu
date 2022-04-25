@@ -38,11 +38,9 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-// #include <device_functions.h>
 #include <cuda_runtime_api.h>
 #include <stdlib.h>
 #include <stdio.h>
-// #include <time.h>
 #include <random>
 #include <assert.h>
 #include <chrono>
@@ -84,7 +82,7 @@ const int user_n = n;
 const int n_tests = 100;
 #else
 // User inputs: These values should be changed by the user
-const int user_n = 128; // This is the size of the cost matrix as supplied by the user
+const int user_n = 8192; // This is the size of the cost matrix as supplied by the user
 const double frac = 10;
 const double epsilon = 0.0001; // used for comparisons for floating point numbers
 typedef double data;		   // data type of weight matrix
@@ -96,9 +94,9 @@ const int n_tests = 1;						// defines the number of tests performed
 
 // End of user inputs
 
-bool __device__ near_zero(const double &val)
+bool __device__ near_zero(double val)
 {
-	return ((val < epsilon) && (val > -epsilon));
+	return ((val > -epsilon) && (val < epsilon));
 }
 
 bool __device__ near_zero(int val)
@@ -420,7 +418,6 @@ __global__ void compress_matrix()
 
 	if (near_zero(slack[i]))
 	{
-		// atomicAdd(&zeros_size, 1);
 		int b = i >> log2_data_block_size;
 		int i0 = i & ~(data_block_size - 1); // == b << log2_data_block_size
 		int j = atomicAdd(zeros_size_b + b, 1);
@@ -803,42 +800,24 @@ __device__ void min_reduce2(volatile data *g_idata, volatile data *g_odata, unsi
 		g_odata[blockIdx.x] = sdata[0];
 }
 
-__global__ void step_6_init()
-{
-	if (threadIdx.x == 0)
-		zeros_size = 0;
-	zeros_size_b[threadIdx.x] = 0;
-}
-
-__global__ void step_6_add_sub_fused_compress_matrix()
+__global__ void step_6_add_sub()
 {
 	// STEP 6:
-	/*STEP 6: Add the minimum uncovered value to every element of each covered
-	row, and subtract it from every element of each uncovered column.
-	Return to Step 4 without altering any stars, primes, or covered lines. */
+	//	/*STEP 6: Add the minimum uncovered value to every element of each covered
+	//	row, and subtract it from every element of each uncovered column.
+	//	Return to Step 4 without altering any stars, primes, or covered lines. */
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
 	int l = i & row_mask;
 	int c = i >> log2_n;
-	switch (cover_row[l] + cover_column[c])
-	{
-	case 2:
+	if (cover_row[l] == 1 && cover_column[c] == 1)
 		slack[i] += d_min_in_mat;
-		break;
-	case 0:
+	if (cover_row[l] == 0 && cover_column[c] == 0)
 		slack[i] -= d_min_in_mat;
-		break;
-	default:
-		break;
-	}
 
-	// compress matrix
-	if (near_zero(slack[i]))
-	{
-		int b = i >> log2_data_block_size;
-		int i0 = i & ~(data_block_size - 1); // == b << log2_data_block_size
-		int j = atomicAdd(zeros_size_b + b, 1);
-		zeros[i0 + j] = i;
-	}
+	if (i == 0)
+		zeros_size = 0;
+	if (i < n_blocks_step_4)
+		zeros_size_b[i] = 0;
 }
 
 __global__ void min_reduce_kernel1()
@@ -923,11 +902,8 @@ inline double get_timer_period(void)
 	printf(#k "\t %g \t %d\n", dh_get_timer_period() * k##_time, k##_runs)
 
 // Hungarian_Algorithm
-#ifndef DYNAMIC
+
 void Hungarian_Algorithm()
-#else
-__global__ void Hungarian_Algorithm()
-#endif
 {
 	hr_clock_rep timer_start, timer_stop;
 	// hr_clock_rep total_time_start, total_time_stop;
@@ -949,13 +925,9 @@ __global__ void Hungarian_Algorithm()
 	declare_kernel(step_4);
 	declare_kernel(min_reduce_kernel1);
 	declare_kernel(min_reduce_kernel2);
-	declare_kernel(step_6_init);
-	declare_kernel(step_6_add_sub_fused_compress_matrix);
+	declare_kernel(step_6_add_sub);
 	declare_kernel(step_5a);
 	declare_kernel(step_5b);
-	// declare_kernel(step_5c);
-
-	// total_time_start = dh_get_globaltime();
 
 	// Initialization
 	call_kernel(init, n_blocks, n_threads);
@@ -1025,11 +997,10 @@ __global__ void Hungarian_Algorithm()
 			// step 6_kernel
 			call_kernel_s(min_reduce_kernel1, n_blocks_reduction, n_threads_reduction, n_threads_reduction * sizeof(data));
 			call_kernel_s(min_reduce_kernel2, 1, n_blocks_reduction / 2, (n_blocks_reduction / 2) * sizeof(data));
-			call_kernel(step_6_init, 1, n_blocks_step_4);
-			call_kernel(step_6_add_sub_fused_compress_matrix, n_blocks_full, n_threads_full);
+			call_kernel(step_6_add_sub, n_blocks_full, n_threads_full);
 
 			// compress_matrix
-			//  call_kernel(compress_matrix, n_blocks_full, n_threads_full);
+			call_kernel(compress_matrix, n_blocks_full, n_threads_full);
 			call_kernel(add_reduction, 1, n_blocks_step_4);
 
 		} // repeat step 4 and 6
@@ -1057,11 +1028,9 @@ __global__ void Hungarian_Algorithm()
 	kernel_stats(step_4);
 	kernel_stats(min_reduce_kernel1);
 	kernel_stats(min_reduce_kernel2);
-	kernel_stats(step_6_add_sub_fused_compress_matrix);
-	kernel_stats(step_6_init);
+	kernel_stats(step_6_add_sub);
 	kernel_stats(step_5a);
 	kernel_stats(step_5b);
-	// kernel_stats(step_5c);
 
 	// printf("Total time(ms) \t %g\n", dh_get_timer_period() * (total_time_stop - total_time_start));
 }
@@ -1085,16 +1054,12 @@ int main(int argc, char **argv)
 	// Constant checks:
 	check(n == (1 << log2_n), "Incorrect log2_n!");
 	check(n_threads * n_blocks == n, "n_threads*n_blocks != n\n");
-	// step 1
 	check(n_blocks_reduction <= n, "Step 1: Should have several lines per block!");
 	check(n % n_blocks_reduction == 0, "Step 1: Number of lines per block should be integer!");
 	check((n_blocks_reduction * n_threads_reduction) % n == 0, "Step 1: The grid size must be a multiple of the line size!");
 	check(n_threads_reduction * n_blocks_reduction <= n * n, "Step 1: The grid size is bigger than the matrix size!");
-	// step 6
 	check(n_threads_full * n_blocks_full <= n * n, "Step 6: The grid size is bigger than the matrix size!");
 	check(columns_per_block_step_4 * n == (1 << log2_data_block_size), "Columns per block of step 4 is not a power of two!");
-
-	// printf("Running. See out.txt for output.\n");
 
 	// Open text file
 	// FILE *file = freopen("out.txt", "w", stdout);
@@ -1118,8 +1083,6 @@ int main(int argc, char **argv)
 	long long total_time = 0;
 	for (int test = 0; test < n_tests; test++)
 	{
-		// printf("\n\n\n\ntest %d\n", test);
-		// fflush(file);
 		for (int c = 0; c < ncols; c++)
 		{
 			for (int r = 0; r < nrows; r++)
@@ -1141,7 +1104,6 @@ int main(int argc, char **argv)
 				}
 			}
 		}
-		// printf("\n");
 #else
 
 #endif
@@ -1157,11 +1119,7 @@ int main(int argc, char **argv)
 		cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024 * 1024 * 1024);
 
 		auto start = clock::now();
-#ifndef DYNAMIC
 		Hungarian_Algorithm();
-#else
-	Hungarian_Algorithm<<<1, 1>>>();
-#endif
 		checkCuda(cudaDeviceSynchronize());
 
 		auto elapsed = clock::now() - start;
