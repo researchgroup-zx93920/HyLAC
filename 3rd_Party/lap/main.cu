@@ -18,6 +18,7 @@ int main(int argc, char **argv)
 
     default_random_engine generator(seed);
     uniform_int_distribution<int> distribution(0, range - 1);
+    // uniform_real_distribution<double> distribution(0, range - 1);
     long long total_time = 0;
     for (int test = 0; test < n_tests; test++)
     {
@@ -58,7 +59,7 @@ int main(int argc, char **argv)
         long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
         total_time += microseconds / n_tests;
 
-        printDebugArray(d_row_assignments, N, "LAP assignments:");
+        // printDebugArray(d_row_assignments, N, "LAP assignments:");
         cudaFree(d_C);
         cudaFree(d_row_assignments);
         cudaFree(d_row_duals);

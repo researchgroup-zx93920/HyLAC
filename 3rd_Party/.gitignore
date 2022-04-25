@@ -1,0 +1,4 @@
+tests/**
+test_execs/**
+.vscode/**
+.vscode

@@ -38,11 +38,9 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-// #include <device_functions.h>
 #include <cuda_runtime_api.h>
 #include <stdlib.h>
 #include <stdio.h>
-// #include <time.h>
 #include <random>
 #include <assert.h>
 #include <chrono>
@@ -86,7 +84,7 @@ const int user_n = n;
 const int n_tests = 100;
 #else
 // User inputs: These values should be changed by the user
-const int user_n = 4096; // This is the size of the cost matrix as supplied by the user
+const int user_n = 10; // This is the size of the cost matrix as supplied by the user
 const double frac = 10;
 const double epsilon = 0.0001; // used for comparisons for floating point numbers
 typedef double data;		   // data type of weight matrix
@@ -222,7 +220,7 @@ __global__ void init()
 {
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
 	// initializations
-	//for step 2
+	// for step 2
 	if (i < nrows)
 	{
 		cover_row[i] = 0;
@@ -526,7 +524,6 @@ __global__ void step_2f()
 // uncovered zeros left. Save the smallest uncovered value and
 // Go to Step 6.
 
-
 /* STEP 5:
 Construct a series of alternating primed and starred zeros as
 follows:
@@ -537,7 +534,6 @@ be one). Continue until the series terminates at a primed zero
 that has no starred zero in its column. Unstar each starred
 zero of the series, star each primed zero of the series, erase
 all primes and uncover every line in the matrix. Return to Step 3.*/
-
 
 // STEP 6
 // Add the minimum uncovered value to every element of each covered
@@ -749,7 +745,6 @@ __device__ void min_reduce2(volatile data *g_idata, volatile data *g_odata, unsi
 		g_odata[blockIdx.x] = sdata[0];
 }
 
-
 __global__ void step_3456()
 {
 	auto grid = cg::this_grid();
@@ -760,14 +755,13 @@ __global__ void step_3456()
 	// 	printf("ncols device: %d\n", ncols);
 	// 	return;
 	// }
-		
 
 	while (1)
 	{
 		grid.sync();
 
-		//step3_fused	n_blocks, n_threads
-		const int id = n_threads * blockIdx.x + threadIdx.x; //threads coarsened by n_threads
+		// step3_fused	n_blocks, n_threads
+		const int id = n_threads * blockIdx.x + threadIdx.x; // threads coarsened by n_threads
 		if (tx < n_threads && b < n_blocks)
 		{
 			// const int id = n_threads * blockIdx.x + threadIdx.x;
@@ -790,16 +784,16 @@ __global__ void step_3456()
 			row_of_green_at_column[id] = -1;
 		}
 
-		//finished step_3_fused
+		// finished step_3_fused
 
 		grid.sync();
-		//either all threads in grid break or none
+		// either all threads in grid break or none
 		if (n_matches >= ncols)
 			break;
 
 		grid.sync();
 
-		//step_456 begin
+		// step_456 begin
 
 		while (1)
 		{
@@ -880,11 +874,11 @@ __global__ void step_3456()
 			// }
 			grid.sync();
 
-			//either all threads break or not
+			// either all threads break or not
 			if (goto_5)
 				break;
 
-			grid.sync();
+			// grid.sync();
 
 			if (blockIdx.x < 256)
 			{
@@ -897,7 +891,7 @@ __global__ void step_3456()
 			{
 				min_reduce2<n_threads_reduction / 2>(d_min_in_mat_vect, &d_min_in_mat, n_blocks_reduction);
 			}
-			grid.sync();
+			// grid.sync();
 
 			if (blockIdx.x == 0 && threadIdx.x < 8)
 			{
@@ -907,34 +901,32 @@ __global__ void step_3456()
 			}
 			grid.sync();
 
-			for (int i = b; i < n * n / 1024; i += gridDim.x)
+			for (int i = b; i < n * n / 256; i += gridDim.x)
 			{
-				for (int j = tx; j < 1024; j += blockDim.x)
+				const int k = i * 256 + tx;
+				const int l = k & row_mask; // equivalent to % (remainder)
+				const int c = k >> log2_n;	// equivalent to / (divided by n)
+				data reg = slack[k];
+
+				switch (cover_row[l] + cover_column[c])
 				{
+				case 2:
+					slack[k] = (reg += d_min_in_mat);
+					break;
+				case 0:
+					slack[k] = (reg -= d_min_in_mat);
+					break;
+				default:
+					break;
+				}
+				__syncthreads();
 
-					int k = i * 1024 + j;
-					const int l = k & row_mask; //equivalent to % (remainder)
-					const int c = k >> log2_n;	//equivalent to / (divided by n)
-
-					switch (cover_row[l] + cover_column[c])
-					{
-					case 2:
-						slack[k] += d_min_in_mat;
-						break;
-					case 0:
-						slack[k] -= d_min_in_mat;
-						break;
-					default:
-						break;
-					}
-
-					if (near_zero(slack[k]))
-					{
-						int b = k >> log2_data_block_size;
-						int i0 = k & ~(data_block_size - 1); // == b << log2_data_block_size
-						int l = atomicAdd(zeros_size_b + b, 1);
-						zeros[i0 + l] = k;
-					}
+				if (near_zero(reg))
+				{
+					int b = k >> log2_data_block_size;
+					int i0 = k & ~(data_block_size - 1); // == b << log2_data_block_size
+					int l = atomicAdd(zeros_size_b + b, 1);
+					zeros[i0 + l] = k;
 				}
 			}
 			grid.sync();
@@ -963,10 +955,10 @@ __global__ void step_3456()
 			}
 		}
 
-		//step 456 done
+		// step 456 done
 		grid.sync();
 
-		//step_5ab
+		// step_5ab
 
 		// int i = n_threads * b + tx;
 		int r_Z0, c_Z0, c_Z2;
@@ -1010,7 +1002,6 @@ __global__ void step_3456()
 		}
 	}
 }
-
 
 __device__ inline long long int d_get_globaltime(void)
 {
@@ -1081,16 +1072,15 @@ inline double get_timer_period(void)
 #define call_cooperative_kernel(k, n_blocks, n_threads) call_cooperative_kernel_s(k, n_blocks, n_threads, 0ll);
 
 #define call_cooperative_kernel_s(k, n_blocks, n_threads, shared)                                                 \
-{                                                                                                             \
-	timer_start = dh_get_globaltime();                                                                        \
-	void *param[] = {};                                                                                       \
-	cudaLaunchCooperativeKernel((void *)k, dim3(n_blocks, 1, 1), dim3(n_threads, 1, 1), param, shared, NULL); \
-	dh_checkCuda(cudaDeviceSynchronize());                                                                    \
-	timer_stop = dh_get_globaltime();                                                                         \
-	k##_time += timer_stop - timer_start;                                                                     \
-	k##_runs++;                                                                                               \
-}
-
+	{                                                                                                             \
+		timer_start = dh_get_globaltime();                                                                        \
+		void *param[] = {};                                                                                       \
+		cudaLaunchCooperativeKernel((void *)k, dim3(n_blocks, 1, 1), dim3(n_threads, 1, 1), param, shared, NULL); \
+		dh_checkCuda(cudaDeviceSynchronize());                                                                    \
+		timer_stop = dh_get_globaltime();                                                                         \
+		k##_time += timer_stop - timer_start;                                                                     \
+		k##_runs++;                                                                                               \
+	}
 
 #define kernel_stats(k) \
 	printf(#k "\t %g \t %d\n", dh_get_timer_period() * k##_time, k##_runs)
@@ -1116,9 +1106,9 @@ __global__ void Hungarian_Algorithm()
 	declare_kernel(compress_matrix);
 	declare_kernel(add_reduction);
 	declare_kernel(step_2f);
-	
+
 	declare_kernel(step_3456);
-	
+
 	// total_time_start = dh_get_globaltime();
 
 	// Initialization
@@ -1175,7 +1165,8 @@ int main(int argc, char **argv)
 
 #ifndef USE_TEST_MATRIX
 	default_random_engine generator(seed);
-	uniform_real_distribution<double> distribution(0, range - 1);
+	uniform_int_distribution<int> distribution(0, range - 1);
+	// uniform_real_distribution<double> distribution(0, range - 1);
 
 	long long total_time = 0;
 	for (int test = 0; test < n_tests; test++)
@@ -1188,11 +1179,11 @@ int main(int argc, char **argv)
 			{
 				if (c < user_n && r < user_n)
 				{
-					// if (r % user_n == 0 && c >0)
-					// 	printf("\n");
+					if (r % user_n == 0 && c > 0)
+						printf("\n");
 					double gen = distribution(generator);
 					h_cost[c][r] = gen;
-					// cout << gen << "\t";
+					cout << gen << "\t";
 				}
 				else
 				{
@@ -1203,7 +1194,7 @@ int main(int argc, char **argv)
 				}
 			}
 		}
-		// printf("\n");
+		printf("\n");
 #else
 
 #endif
