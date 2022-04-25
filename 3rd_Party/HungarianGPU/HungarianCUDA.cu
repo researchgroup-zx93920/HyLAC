@@ -75,7 +75,6 @@
 #define kmin(x, y) ((x < y) ? x : y)
 #define kmax(x, y) ((x > y) ? x : y)
 
-#ifndef USE_TEST_MATRIX
 #ifdef _n_
 // These values are meant to be changed by scripts
 const int n = _n_;		   // size of the cost/pay matrix
@@ -84,10 +83,10 @@ const int user_n = n;
 const int n_tests = 100;
 #else
 // User inputs: These values should be changed by the user
-const int user_n = 128; // This is the size of the cost matrix as supplied by the user
+const int user_n = 8192; // This is the size of the cost matrix as supplied by the user
 const double frac = 10;
 const double epsilon = 0.0001; // used for comparisons for floating point numbers
-typedef double data;		   // data type of weight matrix
+typedef int data;			   // data type of weight matrix
 
 const int n = 1 << (klog2(user_n - 1) + 1); // The size of the cost/pay matrix used in the algorithm that is increased to a power of two
 const double range = frac * user_n;			// defines the range of the random matrix.
@@ -114,15 +113,6 @@ const int n_blocks_reduction = kmin(n, 256);  // Number of blocks used in the re
 const int n_threads_full = kmin(n, 512);	  // Number of threads used the largest grids sizes (typically grid size equal to n*n)
 											  // Used in steps 2 and 6 (512)
 const int seed = 45345;						  // Initialization for the random number generator
-
-#else
-const int n = 4;
-const int log2_n = 2;
-const int n_threads = 2;
-const int n_threads_reduction = 2;
-const int n_blocks_reduction = 2;
-const int n_threads_full = 2;
-#endif
 
 const int n_blocks = n / n_threads;										   // Number of blocks used in small kernels grid size (typically grid size equal to n)
 const int n_blocks_full = n * n / n_threads_full;						   // Number of blocks used the largest gris sizes (typically grid size equal to n*n)
@@ -424,7 +414,7 @@ __global__ void compress_matrix()
 		int b = i >> log2_data_block_size;
 		int i0 = i & ~(data_block_size - 1); // == b << log2_data_block_size
 		int j = atomicAdd(zeros_size_b + b, 1);
-		zeros[i0 + j] = i;
+		zeros[i0 + j] = i; // saves index of zeros in slack matrix per block
 	}
 }
 
@@ -476,7 +466,7 @@ __global__ void step_2()
 
 			if (cover_row[l] == 0 && cover_column[c] == 0)
 			{
-				// thread trys to get the line
+				// thread tries to get the line
 				if (!atomicExch((int *)&(cover_row[l]), 1))
 				{
 					// only one thread gets the line
@@ -518,11 +508,18 @@ __global__ void step_3ini()
 __global__ void step_3()
 {
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
+	__shared__ int matches;
+	if (threadIdx.x == 0)
+		matches = 0;
+	__syncthreads();
 	if (row_of_star_at_column[i] >= 0)
 	{
 		cover_column[i] = 1;
-		atomicAdd((int *)&n_matches, 1);
+		atomicAdd((int *)&matches, 1);
 	}
+	__syncthreads();
+	if (threadIdx.x == 0)
+		atomicAdd((int *)&n_matches, matches);
 }
 
 // STEP 4
@@ -548,8 +545,8 @@ __global__ void step_4()
 	volatile int *v_cover_row = cover_row;
 	volatile int *v_cover_column = cover_column;
 
-	int i = threadIdx.x;
-	int b = blockIdx.x;
+	const int i = threadIdx.x;
+	const int b = blockIdx.x;
 	// int limit; my__syncthreads_init(limit);
 
 	if (i == 0)
@@ -565,7 +562,7 @@ __global__ void step_4()
 			s_found = false;
 		__syncthreads();
 
-		for (int j = i; j < zeros_size_b[b]; j += blockDim.x)
+		for (int j = threadIdx.x; j < zeros_size_b[b]; j += blockDim.x)
 		{
 			int z = zeros[(b << log2_data_block_size) + j];
 			int l = z & row_mask;
@@ -577,15 +574,15 @@ __global__ void step_4()
 
 				if (!v_cover_column[c] && !v_cover_row[l])
 				{
-					s_found = true;
+					s_found = true; // find uncovered zero
 					s_repeat_kernel = true;
-					column_of_prime_at_row[l] = c;
+					column_of_prime_at_row[l] = c; // prime the uncovered zero
 
 					if (c1 >= 0)
 					{
-						v_cover_row[l] = 1;
+						v_cover_row[l] = 1; // cover row
 						__threadfence();
-						v_cover_column[c1] = 0;
+						v_cover_column[c1] = 0; // uncover column
 					}
 					else
 					{
@@ -593,14 +590,13 @@ __global__ void step_4()
 					}
 				}
 			} // for(int n
-
-		} // for(int j
+		}	  // for(int j
 		__syncthreads();
 	} while (s_found && !s_goto_5);
 
 	if (i == 0 && s_repeat_kernel)
 		repeat_kernel = true;
-	if (i == 0 && s_goto_5)
+	if (i == 0 && s_goto_5) // if any blocks needs to go to step 5, algorithm needs to go to step 5
 		goto_5 = true;
 }
 
@@ -623,9 +619,9 @@ __global__ void step_5a()
 	int r_Z0, c_Z0;
 
 	c_Z0 = column_of_prime_at_row[i];
-	if (c_Z0 >= 0 && column_of_star_at_row[i] < 0)
+	if (c_Z0 >= 0 && column_of_star_at_row[i] < 0) // if primed and not covered
 	{
-		row_of_green_at_column[c_Z0] = i;
+		row_of_green_at_column[c_Z0] = i; // mark the column as green
 
 		while ((r_Z0 = row_of_star_at_column[c_Z0]) >= 0)
 		{
@@ -816,23 +812,26 @@ __global__ void step_6_add_sub_fused_compress_matrix()
 	/*STEP 6: Add the minimum uncovered value to every element of each covered
 	row, and subtract it from every element of each uncovered column.
 	Return to Step 4 without altering any stars, primes, or covered lines. */
-	int i = blockDim.x * blockIdx.x + threadIdx.x;
-	int l = i & row_mask;
-	int c = i >> log2_n;
+	const int i = blockDim.x * blockIdx.x + threadIdx.x;
+	const int l = i & row_mask;
+	const int c = i >> log2_n;
+	auto reg = slack[i];
 	switch (cover_row[l] + cover_column[c])
 	{
 	case 2:
-		slack[i] += d_min_in_mat;
+		reg += d_min_in_mat;
+		slack[i] = reg;
 		break;
 	case 0:
-		slack[i] -= d_min_in_mat;
+		reg -= d_min_in_mat;
+		slack[i] = reg;
 		break;
 	default:
 		break;
 	}
 
 	// compress matrix
-	if (near_zero(slack[i]))
+	if (near_zero(reg))
 	{
 		int b = i >> log2_data_block_size;
 		int i0 = i & ~(data_block_size - 1); // == b << log2_data_block_size
@@ -922,18 +921,9 @@ inline double get_timer_period(void)
 #define kernel_stats(k) \
 	printf(#k "\t %g \t %d\n", dh_get_timer_period() * k##_time, k##_runs)
 
-// Hungarian_Algorithm
-#ifndef DYNAMIC
 void Hungarian_Algorithm()
-#else
-__global__ void Hungarian_Algorithm()
-#endif
 {
 	hr_clock_rep timer_start, timer_stop;
-	// hr_clock_rep total_time_start, total_time_stop;
-#if defined(DEBUG) || defined(_DEBUG)
-	int last_n_covered_rows = 0, last_n_matches = 0;
-#endif
 
 	declare_kernel(init);
 	declare_kernel(calc_min_in_rows);
@@ -953,9 +943,6 @@ __global__ void Hungarian_Algorithm()
 	declare_kernel(step_6_add_sub_fused_compress_matrix);
 	declare_kernel(step_5a);
 	declare_kernel(step_5b);
-	// declare_kernel(step_5c);
-
-	// total_time_start = dh_get_globaltime();
 
 	// Initialization
 	call_kernel(init, n_blocks, n_threads);
@@ -974,7 +961,6 @@ __global__ void Hungarian_Algorithm()
 	do
 	{
 		repeat_kernel = false;
-		dh_checkCuda(cudaDeviceSynchronize());
 		call_kernel(step_2, n_blocks_step_4, (n_blocks_step_4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size);
 		// If we have more than one block it means that we have 512 lines per block so 1024 threads should be adequate.
 	} while (repeat_kernel);
@@ -994,20 +980,6 @@ __global__ void Hungarian_Algorithm()
 
 		while (1) // repeat step 4 and 6
 		{
-#if defined(DEBUG) || defined(_DEBUG)
-			// At each iteraton either the number of matched or covered rows has to increase.
-			// If we went to step 5 the number of matches increases.
-			// If we went to step 6 the number of covered rows increases.
-			n_covered_rows = 0;
-			n_covered_columns = 0;
-			dh_checkCuda(cudaDeviceSynchronize());
-			convergence_check<<<n_blocks, n_threads>>>();
-			dh_checkCuda(cudaDeviceSynchronize());
-			assert(n_matches > last_n_matches || n_covered_rows > last_n_covered_rows);
-			assert(n_matches == n_covered_columns + n_covered_rows);
-			last_n_matches = n_matches;
-			last_n_covered_rows = n_covered_rows;
-#endif
 			do
 			{ // step 4 loop
 				goto_5 = false;
@@ -1061,27 +1033,14 @@ __global__ void Hungarian_Algorithm()
 	kernel_stats(step_6_init);
 	kernel_stats(step_5a);
 	kernel_stats(step_5b);
-	// kernel_stats(step_5c);
 
 	// printf("Total time(ms) \t %g\n", dh_get_timer_period() * (total_time_stop - total_time_start));
 }
 
 int main(int argc, char **argv)
 {
-	// const int user_n = atoi(argv[1]);
-	// const int n = 1 << (klog2(user_n) + 1);
 
-	// double range = strtod(argv[2], nullptr);
-	// range *= n;
-	// int log2_n = klog2(n);
-
-	// const int log2_n = klog2(n);
-	// const int n_threads = kmin(n, 64);			  // Number of threads used in small kernels grid size (typically grid size equal to n)
-	// 										  // Used in steps 3ini, 3, 4ini, 4a, 4b, 5a and 5b (64)
-	// const int n_threads_reduction = kmin(n, 256); // Number of threads used in the redution kernels in step 1 and 6 (256)
-	// const int n_blocks_reduction = kmin(n, 256);  // Number of blocks used in the redution kernels in step 1 and 6 (256)
-	// const int n_threads_full = kmin(n, 512);
-
+	cudaSetDevice(1);
 	// Constant checks:
 	check(n == (1 << log2_n), "Incorrect log2_n!");
 	check(n_threads * n_blocks == n, "n_threads*n_blocks != n\n");
@@ -1094,24 +1053,6 @@ int main(int argc, char **argv)
 	check(n_threads_full * n_blocks_full <= n * n, "Step 6: The grid size is bigger than the matrix size!");
 	check(columns_per_block_step_4 * n == (1 << log2_data_block_size), "Columns per block of step 4 is not a power of two!");
 
-	// printf("Running. See out.txt for output.\n");
-
-	// Open text file
-	// FILE *file = freopen("out.txt", "w", stdout);
-	// if (file == NULL)
-	// {
-	// 	perror("Error opening the output file!\n");
-	// 	getchar();
-	// 	exit(1);
-	// };
-
-	// Prints the current time
-	// time_t current_time;
-	// time(&current_time);
-	// printf("%s\n", ctime(&current_time));
-	// fflush(file);
-
-#ifndef USE_TEST_MATRIX
 	default_random_engine generator(seed);
 	uniform_int_distribution<int> distribution(0, range - 1);
 
@@ -1142,26 +1083,19 @@ int main(int argc, char **argv)
 			}
 		}
 		// printf("\n");
-#else
-
-#endif
 
 		// Copy vectors from host memory to device memory
 		cudaMemcpyToSymbol(slack, h_cost, sizeof(data) * nrows * ncols); // symbol refers to the device memory hence "To" means from Host to Device
 
 		// Invoke kernels
-
-		// time_t start_time = clock();
 		typedef std::chrono::high_resolution_clock clock;
 
 		cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024 * 1024 * 1024);
 
 		auto start = clock::now();
-#ifndef DYNAMIC
+
 		Hungarian_Algorithm();
-#else
-	Hungarian_Algorithm<<<1, 1>>>();
-#endif
+
 		checkCuda(cudaDeviceSynchronize());
 
 		auto elapsed = clock::now() - start;
@@ -1182,12 +1116,6 @@ int main(int argc, char **argv)
 		printf("Total cost: \t %f \n", total_cost);
 		long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
 		total_time += microseconds / n_tests;
-
-#ifndef USE_TEST_MATRIX
-
-	} // for (int) test
+	}
 	cout << "Time taken: \t" << total_time / 1000.0f << " ms" << endl;
-#endif
-
-	// fclose(file);
 }
