@@ -1,15 +1,3 @@
-// Fast Block Distributed CUDA Implementation of the Hungarian Algorithm
-//
-// Annex to the paper:
-// Paulo A. C. Lopes, Satyendra Singh Yadav, Aleksandar Ilic, Sarat Kumar Patra ,
-// "Fast Block Distributed CUDA Implementation of the Hungarian Algorithm",
-// Journal Parallel Distributed Computing
-//
-// Hungarian algorithm:
-// (This algorithm was modified to result in an efficient GPU implementation, see paper)
-//
-// Initialize the slack matrix with the cost matrix, and then work with the slack matrix.
-//
 // STEP 1: Subtract the row minimum from each row. Subtract the column minimum from each column.
 //
 // STEP 2: Find a zero of the slack matrix. If there are no starred zeros in its column or row star the zero.
@@ -38,28 +26,16 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-// #include <device_functions.h>
 #include <cuda_runtime_api.h>
 #include <stdlib.h>
 #include <stdio.h>
-// #include <time.h>
 #include <random>
 #include <assert.h>
 #include <chrono>
 #include "defs.cuh"
 #include "iostream"
 
-// Uncomment to use chars as the data type, otherwise use int
-// #define CHAR_DATA_TYPE
-
-// Uncomment to use a 4x4 predefined matrix for testing
-// #define USE_TEST_MATRIX
-
-// Comment to use managed variables instead of dynamic parallelism; usefull for debugging
-// #define DYNAMIC
-
 #define klog2(n) ((n < 8) ? 2 : ((n < 16) ? 3 : ((n < 32) ? 4 : ((n < 64) ? 5 : ((n < 128) ? 6 : ((n < 256) ? 7 : ((n < 512) ? 8 : ((n < 1024) ? 9 : ((n < 2048) ? 10 : ((n < 4096) ? 11 : ((n < 8192) ? 12 : ((n < 16384) ? 13 : 0))))))))))))
-
 #ifndef DYNAMIC
 #define MANAGED __managed__
 #define dh_checkCuda checkCuda
@@ -75,23 +51,15 @@
 #define kmin(x, y) ((x < y) ? x : y)
 #define kmax(x, y) ((x > y) ? x : y)
 
-#ifdef _n_
-// These values are meant to be changed by scripts
-const int n = _n_;		   // size of the cost/pay matrix
-const int range = _range_; // defines the range of the random matrix.
-const int user_n = n;
-const int n_tests = 100;
-#else
 // User inputs: These values should be changed by the user
 const int user_n = 8192; // This is the size of the cost matrix as supplied by the user
-const double frac = 10;
+const double frac = 1000;
 const double epsilon = 0.0001; // used for comparisons for floating point numbers
 typedef int data;			   // data type of weight matrix
 
 const int n = 1 << (klog2(user_n - 1) + 1); // The size of the cost/pay matrix used in the algorithm that is increased to a power of two
 const double range = frac * user_n;			// defines the range of the random matrix.
 const int n_tests = 1;						// defines the number of tests performed
-#endif
 
 // End of user inputs
 
@@ -910,7 +878,7 @@ inline double get_timer_period(void)
 	{                                                 \
 		timer_start = dh_get_globaltime();            \
 		k<<<n_blocks, n_threads, shared>>>();         \
-		dh_checkCuda(cudaDeviceSynchronize());        \
+		dh_checkCuda(cudaDeiceSynchronize());         \
 		timer_stop = dh_get_globaltime();             \
 		k##_time += timer_stop - timer_start;         \
 		k##_runs++;                                   \
