@@ -1,5 +1,6 @@
 OBJDIR=./o
-EXEDIR=../test_execs
+# EXEDIR=../test_execs
+EXEDIR=.
 DBGDIR=.
 
 all: HungarianCUDA.cu

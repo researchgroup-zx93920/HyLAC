@@ -57,7 +57,6 @@ int main(int argc, char **argv)
     cost **costmatrix = new cost *[N];
     row *colsol = new row[N];
     col *rowsol = new col[N];
-
     cost *u = new cost[N];
     cost *v = new cost[N];
 

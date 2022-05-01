@@ -1,4 +1,3 @@
-
 #include "include/main.h"
 
 int main(int argc, char **argv)
@@ -27,10 +26,10 @@ int main(int argc, char **argv)
             for (int k = 0; k < N; k++)
             {
                 double gen = distribution(generator);
-                // cout << gen << "\t";
+                cout << gen << "\t";
                 C[N * i + k] = gen;
             }
-            // cout << endl;
+            cout << endl;
         }
 
         cudaSafeCall(cudaGetDevice(&devid), "cuda device unavailable!", __LINE__, __FILE__);

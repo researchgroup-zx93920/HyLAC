@@ -52,8 +52,8 @@
 #define kmax(x, y) ((x > y) ? x : y)
 
 // User inputs: These values should be changed by the user
-const int user_n = 8192; // This is the size of the cost matrix as supplied by the user
-const double frac = 1000;
+const int user_n = 4096; // This is the size of the cost matrix as supplied by the user
+const double frac = 10;
 const double epsilon = 0.0001; // used for comparisons for floating point numbers
 typedef int data;			   // data type of weight matrix
 
@@ -381,7 +381,7 @@ __global__ void compress_matrix()
 		// atomicAdd(&zeros_size, 1);
 		int b = i >> log2_data_block_size;
 		int i0 = i & ~(data_block_size - 1); // == b << log2_data_block_size
-		int j = atomicAdd(zeros_size_b + b, 1);
+		int j = atomicAdd(&zeros_size_b[b], 1);
 		zeros[i0 + j] = i; // saves index of zeros in slack matrix per block
 	}
 }
@@ -533,32 +533,32 @@ __global__ void step_4()
 		for (int j = threadIdx.x; j < zeros_size_b[b]; j += blockDim.x)
 		{
 			int z = zeros[(b << log2_data_block_size) + j];
-			int l = z & row_mask;
-			int c = z >> log2_n;
+			int l = z & row_mask; // row
+			int c = z >> log2_n;  // column
 			int c1 = column_of_star_at_row[l];
 
-			for (int n = 0; n < 10; n++)
+			// for (int n = 0; n < 10; n++)	??
+			// {
+
+			if (!v_cover_column[c] && !v_cover_row[l])
 			{
+				s_found = true; // find uncovered zero
+				s_repeat_kernel = true;
+				column_of_prime_at_row[l] = c; // prime the uncovered zero
 
-				if (!v_cover_column[c] && !v_cover_row[l])
+				if (c1 >= 0)
 				{
-					s_found = true; // find uncovered zero
-					s_repeat_kernel = true;
-					column_of_prime_at_row[l] = c; // prime the uncovered zero
-
-					if (c1 >= 0)
-					{
-						v_cover_row[l] = 1; // cover row
-						__threadfence();
-						v_cover_column[c1] = 0; // uncover column
-					}
-					else
-					{
-						s_goto_5 = true;
-					}
+					v_cover_row[l] = 1; // cover row
+					__threadfence();
+					v_cover_column[c1] = 0; // uncover column
 				}
-			} // for(int n
-		}	  // for(int j
+				else
+				{
+					s_goto_5 = true;
+				}
+			}
+			// } for(int n
+		} // for(int j
 		__syncthreads();
 	} while (s_found && !s_goto_5);
 
@@ -878,7 +878,7 @@ inline double get_timer_period(void)
 	{                                                 \
 		timer_start = dh_get_globaltime();            \
 		k<<<n_blocks, n_threads, shared>>>();         \
-		dh_checkCuda(cudaDeiceSynchronize());         \
+		dh_checkCuda(cudaDeviceSynchronize());        \
 		timer_stop = dh_get_globaltime();             \
 		k##_time += timer_stop - timer_start;         \
 		k##_runs++;                                   \
@@ -953,7 +953,7 @@ void Hungarian_Algorithm()
 				goto_5 = false;
 				repeat_kernel = false;
 				dh_checkCuda(cudaDeviceSynchronize());
-
+				printf("Number of zeros %d\n", zeros_size);
 				call_kernel(step_4, n_blocks_step_4, (n_blocks_step_4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size);
 				// If we have more than one block it means that we have 512 lines per block so 1024 threads should be adequate.
 

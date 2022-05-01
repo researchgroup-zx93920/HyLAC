@@ -27,13 +27,6 @@
 using namespace std;
 
 /*This function is the jv shortest augmenting path algorithm to solve the assignment problem*/
-cost lap(int dim,
-         cost **assigncost,
-         col *rowsol,
-         row *colsol,
-         cost *u,
-         cost *v)
-
 // input:
 // dim        - problem size
 // assigncost - cost matrix
@@ -43,7 +36,12 @@ cost lap(int dim,
 // colsol     - row assigned to column in solution
 // u          - dual variables, row reduction numbers
 // v          - dual variables, column reduction numbers
-
+cost lap(int dim,
+         cost **assigncost,
+         col *rowsol,
+         row *colsol,
+         cost *u,
+         cost *v)
 {
   boolean unassignedfound;
   row i, imin, numfree = 0, prvnumfree, f, i0, k, freerow, *pred, *free;
@@ -108,73 +106,72 @@ cost lap(int dim,
     }
   }
   //   AUGMENTING ROW REDUCTION
-  int loopcnt = 0; // do-loop to be done twice.
-  do
-  {
-    loopcnt++;
+  // optional optimization step
+  int loopcnt = 0;
+  // do-while loop to be done twice.
 
-    //     scan all free rows.
-    //     in some cases, a free row may be replaced with another one to be scanned next.
-    k = 0;
-    prvnumfree = numfree;
-    numfree = 0; // start list of rows still free after augmenting row reduction.
-    while (k < prvnumfree)
-    {
-      i = free[k];
-      k++;
-
-      //       find minimum and second minimum reduced cost over columns.
-      umin = assigncost[i][0] - v[0];
-      j1 = 0;
-      usubmin = BIG;
-      for (j = 1; j < dim; j++)
-      {
-        h = assigncost[i][j] - v[j];
-        if (h < usubmin)
-          if (h >= umin)
-          {
-            usubmin = h;
-            j2 = j;
-          }
-          else
-          {
-            usubmin = umin;
-            umin = h;
-            j2 = j1;
-            j1 = j;
-          }
-      }
-
-      i0 = colsol[j1];
-      if (umin < usubmin)
-        //         change the reduction of the minimum column to increase the minimum
-        //         reduced cost in the row to the subminimum.
-        v[j1] = v[j1] - (usubmin - umin);
-      else           // minimum and subminimum equal.
-        if (i0 > -1) // minimum column j1 is assigned.
-        {
-          //           swap columns j1 and j2, as j2 may be unassigned.
-          j1 = j2;
-          i0 = colsol[j2];
-        }
-
-      //       (re-)assign i to j1, possibly de-assigning an i0.
-      rowsol[i] = j1;
-      colsol[j1] = i;
-
-      if (i0 > -1) // minimum column j1 assigned earlier.
-        if (umin < usubmin)
-          //           put in current k, and go back to that k.
-          //           continue augmenting path i - j1 with i0.
-          free[--k] = i0;
-        else
-          //           no further augmenting reduction possible.
-          //           store i0 in list of free rows for next phase.
-          free[numfree++] = i0;
-    }
-  } while (loopcnt < 2); // repeat once.
+  // do
+  // {
+  //   loopcnt++;
+  // scan all free rows.
+  //              in some cases, a free row may be replaced with another one to be scanned next.
+  //   k = 0;
+  //   prvnumfree = numfree;
+  //   numfree = 0; // start list of rows still free after augmenting row reduction.
+  //   while (k < prvnumfree)
+  //   {
+  //     i = free[k];
+  //     k++;
+  //     //       find minimum and second minimum reduced cost over columns.
+  //     umin = assigncost[i][0] - v[0];
+  //     j1 = 0;
+  //     usubmin = BIG;
+  //     for (j = 1; j < dim; j++)
+  //     {
+  //       h = assigncost[i][j] - v[j];
+  //       if (h < usubmin)
+  //         if (h >= umin)
+  //         {
+  //           usubmin = h;
+  //           j2 = j;
+  //         }
+  //         else
+  //         {
+  //           usubmin = umin;
+  //           umin = h;
+  //           j2 = j1;
+  //           j1 = j;
+  //         }
+  //     }
+  //     i0 = colsol[j1];
+  //     if (umin < usubmin)
+  //       //         change the reduction of the minimum column to increase the minimum
+  //       //         reduced cost in the row to the subminimum.
+  //       v[j1] = v[j1] - (usubmin - umin);
+  //     else           // minimum and subminimum equal.
+  //       if (i0 > -1) // minimum column j1 is assigned.
+  //       {
+  //         //           swap columns j1 and j2, as j2 may be unassigned.
+  //         j1 = j2;
+  //         i0 = colsol[j2];
+  //       }
+  //     //       (re-)assign i to j1, possibly de-assigning an i0.
+  //     rowsol[i] = j1;
+  //     colsol[j1] = i;
+  //     if (i0 > -1) // minimum column j1 assigned earlier.
+  //       if (umin < usubmin)
+  //         //           put in current k, and go back to that k.
+  //         //           continue augmenting path i - j1 with i0.
+  //         free[--k] = i0;
+  //       else
+  //         //           no further augmenting reduction possible.
+  //         //           store i0 in list of free rows for next phase.
+  //         free[numfree++] = i0;
+  //   }
+  // } while (loopcnt < 2); // repeat once.
 
   // AUGMENT SOLUTION for each free row.
+
   for (f = 0; f < numfree; f++)
   {
     freerow = free[f]; // start row of augmenting path.
