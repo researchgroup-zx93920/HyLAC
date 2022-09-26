@@ -52,14 +52,14 @@
 #define kmax(x, y) ((x > y) ? x : y)
 
 // User inputs: These values should be changed by the user
-const int user_n = 4096; // This is the size of the cost matrix as supplied by the user
-const double frac = 10;
+const int user_n = 8192; // This is the size of the cost matrix as supplied by the user
+const double frac = 0.001;
 const double epsilon = 0.0001; // used for comparisons for floating point numbers
-typedef int data;			   // data type of weight matrix
+typedef int data;							 // data type of weight matrix
 
 const int n = 1 << (klog2(user_n - 1) + 1); // The size of the cost/pay matrix used in the algorithm that is increased to a power of two
-const double range = frac * user_n;			// defines the range of the random matrix.
-const int n_tests = 1;						// defines the number of tests performed
+const double range = frac * user_n;					// defines the range of the random matrix.
+const int n_tests = 1;											// defines the number of tests performed
 
 // End of user inputs
 
@@ -73,23 +73,23 @@ bool __device__ near_zero(int val)
 	return val == 0;
 }
 
-const int log2_n = klog2(n);				  // log2(n)
-const int n_threads = kmin(n, 64);			  // Number of threads used in small kernels grid size (typically grid size equal to n)
-											  // Used in steps 3ini, 3, 4ini, 4a, 4b, 5a and 5b (64)
+const int log2_n = klog2(n);									// log2(n)
+const int n_threads = kmin(n, 64);						// Number of threads used in small kernels grid size (typically grid size equal to n)
+																							// Used in steps 3ini, 3, 4ini, 4a, 4b, 5a and 5b (64)
 const int n_threads_reduction = kmin(n, 256); // Number of threads used in the redution kernels in step 1 and 6 (256)
-const int n_blocks_reduction = kmin(n, 256);  // Number of blocks used in the redution kernels in step 1 and 6 (256)
-const int n_threads_full = kmin(n, 512);	  // Number of threads used the largest grids sizes (typically grid size equal to n*n)
-											  // Used in steps 2 and 6 (512)
-const int seed = 45345;						  // Initialization for the random number generator
+const int n_blocks_reduction = kmin(n, 256);	// Number of blocks used in the redution kernels in step 1 and 6 (256)
+const int n_threads_full = kmin(n, 512);			// Number of threads used the largest grids sizes (typically grid size equal to n*n)
+																							// Used in steps 2 and 6 (512)
+const int seed = 45345;												// Initialization for the random number generator
 
-const int n_blocks = n / n_threads;										   // Number of blocks used in small kernels grid size (typically grid size equal to n)
-const int n_blocks_full = n * n / n_threads_full;						   // Number of blocks used the largest gris sizes (typically grid size equal to n*n)
-const int row_mask = (1 << log2_n) - 1;									   // Used to extract the row from tha matrix position index (matrices are column wise)
-const int nrows = n, ncols = n;											   // The matrix is square so the number of rows and columns is equal to n
-const int max_threads_per_block = 1024;									   // The maximum number of threads per block
-const int columns_per_block_step_4 = 512;								   // Number of columns per block in step 4
-const int n_blocks_step_4 = kmax(n / columns_per_block_step_4, 1);		   // Number of blocks in step 4 and 2
-const int data_block_size = columns_per_block_step_4 * n;				   // The size of a data block. Note that this can be bigger than the matrix size.
+const int n_blocks = n / n_threads;																				 // Number of blocks used in small kernels grid size (typically grid size equal to n)
+const int n_blocks_full = n * n / n_threads_full;													 // Number of blocks used the largest gris sizes (typically grid size equal to n*n)
+const int row_mask = (1 << log2_n) - 1;																		 // Used to extract the row from tha matrix position index (matrices are column wise)
+const int nrows = n, ncols = n;																						 // The matrix is square so the number of rows and columns is equal to n
+const int max_threads_per_block = 1024;																		 // The maximum number of threads per block
+const int columns_per_block_step_4 = 512;																	 // Number of columns per block in step 4
+const int n_blocks_step_4 = kmax(n / columns_per_block_step_4, 1);				 // Number of blocks in step 4 and 2
+const int data_block_size = columns_per_block_step_4 * n;									 // The size of a data block. Note that this can be bigger than the matrix size.
 const int log2_data_block_size = log2_n + klog2(columns_per_block_step_4); // log2 of the size of a data block. Note that klog2 cannot handle very large sizes
 
 // No need to change this for data types
@@ -114,30 +114,30 @@ bool h_goto_5;
 
 // Device Variables
 
-__device__ data slack[nrows * ncols];		  // The slack matrix
-__device__ data min_in_rows[nrows];			  // Minimum in rows
-__device__ data min_in_cols[ncols];			  // Minimum in columns
-__device__ int zeros[nrows * ncols];		  // A vector with the position of the zeros in the slack matrix
+__device__ data slack[nrows * ncols];					// The slack matrix
+__device__ data min_in_rows[nrows];						// Minimum in rows
+__device__ data min_in_cols[ncols];						// Minimum in columns
+__device__ int zeros[nrows * ncols];					// A vector with the position of the zeros in the slack matrix
 __device__ int zeros_size_b[n_blocks_step_4]; // The number of zeros in block i
 
-__device__ int row_of_star_at_column[ncols];  // A vector that given the column j gives the row of the star at that column (or -1, no star)
-__device__ int column_of_star_at_row[nrows];  // A vector that given the row i gives the column of the star at that row (or -1, no star)
-__device__ int cover_row[nrows];			  // A vector that given the row i indicates if it is covered (1- covered, 0- uncovered)
-__device__ int cover_column[ncols];			  // A vector that given the column j indicates if it is covered (1- covered, 0- uncovered)
+__device__ int row_of_star_at_column[ncols];	// A vector that given the column j gives the row of the star at that column (or -1, no star)
+__device__ int column_of_star_at_row[nrows];	// A vector that given the row i gives the column of the star at that row (or -1, no star)
+__device__ int cover_row[nrows];							// A vector that given the row i indicates if it is covered (1- covered, 0- uncovered)
+__device__ int cover_column[ncols];						// A vector that given the column j indicates if it is covered (1- covered, 0- uncovered)
 __device__ int column_of_prime_at_row[nrows]; // A vector that given the row i gives the column of the prime at that row  (or -1, no prime)
 __device__ int row_of_green_at_column[ncols]; // A vector that given the row j gives the column of the green at that row (or -1, no green)
 
-__device__ data max_in_mat_row[nrows];				   // Used in step 1 to stores the maximum in rows
-__device__ data min_in_mat_col[ncols];				   // Used in step 1 to stores the minimums in columns
+__device__ data max_in_mat_row[nrows];								 // Used in step 1 to stores the maximum in rows
+__device__ data min_in_mat_col[ncols];								 // Used in step 1 to stores the minimums in columns
 __device__ data d_min_in_mat_vect[n_blocks_reduction]; // Used in step 6 to stores the intermediate results from the first reduction kernel
-__device__ data d_min_in_mat;						   // Used in step 6 to store the minimum
+__device__ data d_min_in_mat;													 // Used in step 6 to store the minimum
 
-MANAGED __device__ int zeros_size;	   // The number fo zeros
-MANAGED __device__ int n_matches;	   // Used in step 3 to count the number of matches found
-MANAGED __device__ bool goto_5;		   // After step 4, goto step 5?
+MANAGED __device__ int zeros_size;		 // The number fo zeros
+MANAGED __device__ int n_matches;			 // Used in step 3 to count the number of matches found
+MANAGED __device__ bool goto_5;				 // After step 4, goto step 5?
 MANAGED __device__ bool repeat_kernel; // Needs to repeat the step 2 and step 4 kernel?
 #if defined(DEBUG) || defined(_DEBUG)
-MANAGED __device__ int n_covered_rows;	  // Used in debug mode to check for the number of covered rows
+MANAGED __device__ int n_covered_rows;		// Used in debug mode to check for the number of covered rows
 MANAGED __device__ int n_covered_columns; // Used in debug mode to check for the number of covered columns
 #endif
 
@@ -167,7 +167,7 @@ inline __device__ cudaError_t d_checkCuda(cudaError_t result)
 	if (result != cudaSuccess)
 	{
 		printf("CUDA Runtime Error: %s\n",
-			   cudaGetErrorString(result));
+					 cudaGetErrorString(result));
 		assert(result == cudaSuccess);
 	}
 #endif
@@ -228,7 +228,7 @@ __global__ void calc_min_in_rows()
 	{
 		thread_min = min(thread_min, slack[i]);
 		i += gridSize; // go to the next piece of the matrix...
-					   // gridSize = 2^k * n, so that each thread always processes the same line or column
+									 // gridSize = 2^k * n, so that each thread always processes the same line or column
 	}
 	sdata[tid] = thread_min;
 
@@ -307,7 +307,7 @@ __global__ void calc_min_in_cols()
 		unsigned int i = c * nrows + l;
 		thread_min = min(thread_min, slack[i]);
 		l += gridSize / n; // go to the next piece of the matrix...
-						   // gridSize = 2^k * n, so that each thread always processes the same line or column
+											 // gridSize = 2^k * n, so that each thread always processes the same line or column
 	}
 	sdata[tid] = thread_min;
 
@@ -534,7 +534,7 @@ __global__ void step_4()
 		{
 			int z = zeros[(b << log2_data_block_size) + j];
 			int l = z & row_mask; // row
-			int c = z >> log2_n;  // column
+			int c = z >> log2_n;	// column
 			int c1 = column_of_star_at_row[l];
 
 			// for (int n = 0; n < 10; n++)	??
@@ -619,7 +619,7 @@ __global__ void step_5b()
 		while (c_Z2 >= 0)
 		{
 			r_Z0 = row_of_green_at_column[c_Z2]; // row of Z2
-			c_Z0 = c_Z2;						 // col of Z2
+			c_Z0 = c_Z2;												 // col of Z2
 			c_Z2 = column_of_star_at_row[r_Z0];	 // col of Z4
 
 			// star Z2
@@ -823,7 +823,7 @@ __device__ inline long long int d_get_globaltime(void)
 	long long int ret;
 
 	asm volatile("mov.u64 %0, %%globaltimer;"
-				 : "=l"(ret));
+							 : "=l"(ret));
 
 	return ret;
 }
@@ -846,7 +846,7 @@ inline cudaError_t checkCuda(cudaError_t result)
 	if (result != cudaSuccess)
 	{
 		printf("CUDA Runtime Error: %s\n",
-			   cudaGetErrorString(result));
+					 cudaGetErrorString(result));
 		assert(result == cudaSuccess);
 	}
 #endif
@@ -868,20 +868,20 @@ inline double get_timer_period(void)
 	return 1000.0 * high_resolution_clock::period::num / high_resolution_clock::period::den;
 }
 
-#define declare_kernel(k)      \
+#define declare_kernel(k)    \
 	hr_clock_rep k##_time = 0; \
 	int k##_runs = 0
 
 #define call_kernel(k, n_blocks, n_threads) call_kernel_s(k, n_blocks, n_threads, 0ll)
 
 #define call_kernel_s(k, n_blocks, n_threads, shared) \
-	{                                                 \
-		timer_start = dh_get_globaltime();            \
-		k<<<n_blocks, n_threads, shared>>>();         \
-		dh_checkCuda(cudaDeviceSynchronize());        \
-		timer_stop = dh_get_globaltime();             \
-		k##_time += timer_stop - timer_start;         \
-		k##_runs++;                                   \
+	{                                                   \
+		timer_start = dh_get_globaltime();                \
+		k<<<n_blocks, n_threads, shared>>>();             \
+		dh_checkCuda(cudaDeviceSynchronize());            \
+		timer_stop = dh_get_globaltime();                 \
+		k##_time += timer_stop - timer_start;             \
+		k##_runs++;                                       \
 	}
 // printf("Finished kernel " #k "(%d,%d,%lld)\n", n_blocks, n_threads, shared);			\
 // fflush(0);											\
@@ -953,7 +953,7 @@ void Hungarian_Algorithm()
 				goto_5 = false;
 				repeat_kernel = false;
 				dh_checkCuda(cudaDeviceSynchronize());
-				printf("Number of zeros %d\n", zeros_size);
+				// printf("Number of zeros %d\n", zeros_size);
 				call_kernel(step_4, n_blocks_step_4, (n_blocks_step_4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size);
 				// If we have more than one block it means that we have 512 lines per block so 1024 threads should be adequate.
 
