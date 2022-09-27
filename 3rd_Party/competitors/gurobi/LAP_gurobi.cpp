@@ -50,10 +50,10 @@ int main(int argc, char **argv)
         for (int k = 0; k < N; k++)
         {
             double gen = (double)distribution(generator);
-            // cout << gen << "\t";
+            cout << gen << "\t";
             C[N * i + k] = gen;
         }
-        // cout << endl;
+        cout << endl;
     }
     // for (int i = 0; i < N; i++)
     // {

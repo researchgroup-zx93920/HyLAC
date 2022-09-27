@@ -179,7 +179,7 @@ void executeZeroCover(CompactEdges &d_edges_csr_dev, Vertices &d_vertices_dev, V
 	}
 }
 
-//Function for compacting row vertices. Used in Step 3 (minimum zero cover).
+// Function for compacting row vertices. Used in Step 3 (minimum zero cover).
 void compactRowVertices(VertexData &d_row_data_dev, Array &d_vertices_csr_out, Array &d_vertices_csr_in, unsigned int devid)
 {
 
@@ -775,8 +775,7 @@ __global__ void kernel_augmentPredicateConstruction(Predicates d_predicates, int
 {
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
 
-	// Copy the matrix into shared memory.
-
+	// Copy the matrix into shared memory
 	if (id < size)
 	{
 		int visited = d_visited[id];

@@ -1,0 +1,7 @@
+*.head
+Src/CMakeFiles/**
+Src/test_gpu
+Src/test_gpu_evaluated
+
+Src/test_cpu
+Src/test_cpu_evaluated
