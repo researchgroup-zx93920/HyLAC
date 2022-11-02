@@ -3,9 +3,11 @@ OBJDIR=./o
 EXEDIR=.
 DBGDIR=.
 
+LDFLAGS=--no-relax
+
 all: HungarianCUDA.cu
-	nvcc -rdc=true -lineinfo --generate-code arch=compute_70,code=compute_70 HungarianCUDA.cu \
-	-std=c++11 -o $(EXEDIR)/LAP19
+	nvcc -lineinfo --generate-code arch=compute_80,code=compute_80 HungarianCUDA.cu --compiler-options -mcmodel=medium \
+	-std=c++11 -lcuda -o $(EXEDIR)/LAP19
 
 debug: HungarianCUDA.cu
 	nvcc -rdc=true -G -g --generate-code arch=compute_70,code=compute_70 HungarianCUDA.cu \

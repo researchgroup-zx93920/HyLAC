@@ -35,6 +35,7 @@
 #include "defs.cuh"
 #include "iostream"
 #include "timing.cuh"
+#include <cmath>
 
 // Uncomment to use chars as the data type, otherwise use int
 // #define CHAR_DATA_TYPE
@@ -45,7 +46,8 @@
 // Comment to use managed variables instead of dynamic parallelism; usefull for debugging
 // #define DYNAMIC
 
-#define klog2(n) ((n < 8) ? 2 : ((n < 16) ? 3 : ((n < 32) ? 4 : ((n < 64) ? 5 : ((n < 128) ? 6 : ((n < 256) ? 7 : ((n < 512) ? 8 : ((n < 1024) ? 9 : ((n < 2048) ? 10 : ((n < 4096) ? 11 : ((n < 8192) ? 12 : ((n < 16384) ? 13 : 0))))))))))))
+#define klog2(n) ((n < 8) ? 2 : ((n < 16) ? 3 : ((n < 32) ? 4 : ((n < 64) ? 5 : ((n < 128) ? 6 : ((n < 256) ? 7 : ((n < 512) ? 8 : ((n < 1024) ? 9 : ((n < 2048) ? 10 : ((n < 4096) ? 11 : ((n < 8192) ? 12 : ((n < 16384) ? 13 : ((n < 16384 * 2) ? 14 : ((n < 16384 * 4) ? 15 : ((n < 16384 * 8) ? 16 : ((n < 16384 * 16) ? 17 : 0))))))))))))))))
+// #define klog2(n) ceil(log2((double)n))
 #ifndef DYNAMIC
 #define MANAGED __managed__
 #define dh_checkCuda checkCuda
@@ -62,8 +64,8 @@
 #define kmax(x, y) ((x > y) ? x : y)
 
 // User inputs: These values should be changed by the user
-const int user_n = 8192; // This is the size of the cost matrix as supplied by the user
-const double frac = 0.001;
+const int user_n = 16; // This is the size of the cost matrix as supplied by the user
+const double frac = 1;
 const double epsilon = 0.0001; // used for comparisons for floating point numbers
 typedef int data;							 // data type of weight matrix
 
@@ -93,7 +95,7 @@ const int n_threads_full = kmin(n, 512);			// Number of threads used the largest
 const int seed = 45345;												// Initialization for the random number generator
 
 const int n_blocks = n / n_threads;																				 // Number of blocks used in small kernels grid size (typically grid size equal to n)
-const int n_blocks_full = n * n / n_threads_full;													 // Number of blocks used the largest gris sizes (typically grid size equal to n*n)
+const int n_blocks_full = (long int)n * n / n_threads_full;								 // Number of blocks used the largest gris sizes (typically grid size equal to n*n)
 const int row_mask = (1 << log2_n) - 1;																		 // Used to extract the row from tha matrix position index (matrices are column wise)
 const int nrows = n, ncols = n;																						 // The matrix is square so the number of rows and columns is equal to n
 const int max_threads_per_block = 1024;																		 // The maximum number of threads per block
@@ -124,10 +126,10 @@ bool h_goto_5;
 
 // Device Variables
 
-__device__ data slack[nrows * ncols];					// The slack matrix
+__device__ data slack[(size_t)nrows * ncols]; // The slack matrix
 __device__ data min_in_rows[nrows];						// Minimum in rows
 __device__ data min_in_cols[ncols];						// Minimum in columns
-__device__ int zeros[nrows * ncols];					// A vector with the position of the zeros in the slack matrix
+__device__ int zeros[(size_t)nrows * ncols];	// A vector with the position of the zeros in the slack matrix
 __device__ int zeros_size_b[n_blocks_step_4]; // The number of zeros in block i
 
 __device__ int row_of_star_at_column[ncols];	// A vector that given the column j gives the row of the star at that column (or -1, no star)
@@ -235,7 +237,7 @@ __global__ void calc_min_in_rows()
 	const unsigned int gridSize = n_threads_reduction * n_blocks_reduction;
 	data thread_min = MAX_DATA;
 
-	while (i < n * n)
+	while (i < (size_t)n * n)
 	{
 		thread_min = min(thread_min, slack[i]);
 		i += gridSize; // go to the next piece of the matrix...
@@ -278,6 +280,7 @@ __global__ void calc_min_in_rows()
 	}
 	if (tid < 32)
 		min_in_rows_warp_reduce(sdata, tid);
+
 	if (tid < n_rows_per_block)
 		min_in_rows[bid * n_rows_per_block + tid] = sdata[tid];
 }
@@ -821,7 +824,7 @@ __global__ void step_6_add_sub_fused_compress_matrix()
 
 __global__ void min_reduce_kernel1()
 {
-	min_reduce1<n_threads_reduction>(slack, d_min_in_mat_vect, nrows * ncols);
+	min_reduce1<n_threads_reduction>(slack, d_min_in_mat_vect, (uint)nrows * ncols);
 }
 
 __global__ void min_reduce_kernel2()
@@ -900,7 +903,7 @@ inline double get_timer_period(void)
 #define kernel_stats(k) \
 	printf(#k "\t %g \t %d\n", dh_get_timer_period() * k##_time, k##_runs)
 
-// Hungarian_Algorithm
+// Hungarian Algorithm
 void Hungarian_Algorithm()
 {
 	hr_clock_rep timer_start, timer_stop;
@@ -937,6 +940,10 @@ void Hungarian_Algorithm()
 	// compress_matrix
 	call_kernel(compress_matrix, n_blocks_full, n_threads_full);
 	call_kernel(add_reduction, 1, n_blocks_step_4);
+
+	cudaDeviceSynchronize();
+	printf("zeros size: %d\n", zeros_size);
+	// exit(-1);
 
 	// Step 2 kernels
 	do
@@ -1021,7 +1028,7 @@ void Hungarian_Algorithm()
 int main(int argc, char **argv)
 {
 
-	cudaSetDevice(1);
+	cudaSetDevice(0);
 	// Constant checks:
 	check(n == (1 << log2_n), "Incorrect log2_n!");
 	check(n_threads * n_blocks == n, "n_threads*n_blocks != n\n");
@@ -1029,9 +1036,9 @@ int main(int argc, char **argv)
 	check(n_blocks_reduction <= n, "Step 1: Should have several lines per block!");
 	check(n % n_blocks_reduction == 0, "Step 1: Number of lines per block should be integer!");
 	check((n_blocks_reduction * n_threads_reduction) % n == 0, "Step 1: The grid size must be a multiple of the line size!");
-	check(n_threads_reduction * n_blocks_reduction <= n * n, "Step 1: The grid size is bigger than the matrix size!");
+	check(n_threads_reduction * n_blocks_reduction <= (size_t)n * n, "Step 1: The grid size is bigger than the matrix size!");
 	// step 6
-	check(n_threads_full * n_blocks_full <= n * n, "Step 6: The grid size is bigger than the matrix size!");
+	check((size_t)n_threads_full * n_blocks_full <= (size_t)n * n, "Step 6: The grid size is bigger than the matrix size!");
 	check(columns_per_block_step_4 * n == (1 << log2_data_block_size), "Columns per block of step 4 is not a power of two!");
 
 	default_random_engine generator(seed);
@@ -1067,14 +1074,15 @@ int main(int argc, char **argv)
 
 		// Copy vectors from host memory to device memory
 		cudaMemcpyToSymbol(slack, h_cost, sizeof(data) * nrows * ncols); // symbol refers to the device memory hence "To" means from Host to Device
-
-		// Invoke kernels
+																																		 // Invoke kernels
 		typedef std::chrono::high_resolution_clock clock;
 
 		cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 1024 * 1024 * 1024);
 
 		auto start = clock::now();
-
+		size_t free, total;
+		cuMemGetInfo(&free, &total);
+		printf("Free memory: %f, Taken memory %f GB\n", free * 1.0 / (1024 * 1024 * 1024), (total - free) * 1.0 / (1024 * 1024 * 1024));
 		Hungarian_Algorithm();
 
 		checkCuda(cudaDeviceSynchronize());
