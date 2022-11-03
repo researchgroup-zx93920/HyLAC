@@ -2,3 +2,7 @@ tests/**
 test_execs/**
 .vscode/**
 .vscode
+*.log
+*.sh
+*.exe
+*.o
