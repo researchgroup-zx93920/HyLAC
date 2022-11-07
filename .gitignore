@@ -10,7 +10,7 @@ Scratch
 # Vim
 .swp
 .swo
-3rd_Party/test_execs/**
+# 3rd_Party/test_execs/**
 .vscode/**
-3rd_Party/tests/**
+# 3rd_Party/tests/**
 Sandbox/**
