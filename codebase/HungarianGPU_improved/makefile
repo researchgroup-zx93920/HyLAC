@@ -6,7 +6,7 @@ DBGDIR=.
 LDFLAGS=--no-relax
 
 all: HungarianCUDA.cu
-	nvcc -lineinfo --generate-code arch=compute_80,code=compute_80 HungarianCUDA.cu --compiler-options -mcmodel=medium \
+	nvcc -lineinfo --generate-code arch=compute_80,code=compute_80 HungarianCUDA.cu \
 	-std=c++11 -lcuda -o $(EXEDIR)/LAP19
 
 debug: HungarianCUDA.cu

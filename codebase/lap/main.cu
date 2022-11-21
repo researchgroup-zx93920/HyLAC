@@ -5,9 +5,9 @@ int main(int argc, char **argv)
     const int seed = 45345;
     int N = atoi(argv[1]);
     double range = strtod(argv[2], nullptr);
-    int n_tests = 1;
+    const int n_tests = 1;
     int N2 = N * N;
-    int devid = 0;
+    int devid = 1;
     int spcount = 1;
     printf("range: %f\n", range);
     double *C = new double[N2];
@@ -31,9 +31,11 @@ int main(int argc, char **argv)
             }
             cout << endl;
         }
-        
+
         cudaSafeCall(cudaGetDevice(&devid), "cuda device unavailable!", __LINE__, __FILE__);
         // printHostMatrix(C, N, N, "LAP costs as read");
+        typedef std::chrono::high_resolution_clock clock;
+        auto start = clock::now();
         double *d_C = nullptr;
         int *d_row_assignments = nullptr;
         double *d_row_duals = nullptr;
@@ -48,9 +50,7 @@ int main(int argc, char **argv)
         cudaSafeCall(cudaMemcpy(d_C, C, N * N * sizeof(double), cudaMemcpyDefault), "Error at ", __LINE__, __FILE__);
 
         CuLAP LAP(N, spcount, devid, false);
-        typedef std::chrono::high_resolution_clock clock;
 
-        auto start = clock::now();
         LAP.solve(d_C, d_row_assignments, d_row_duals, d_col_duals, d_obj);
         auto elapsed = clock::now() - start;
 

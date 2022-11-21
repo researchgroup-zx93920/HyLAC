@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+
 #define CUDA_RUNTIME(ans)                 \
   {                                       \
     gpuAssert((ans), __FILE__, __LINE__); \
@@ -20,17 +22,17 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
   }
 }
 
-#define execKernel(kernel, gridSize, blockSize, deviceId, verbose, ...)  \
-  {                                                                      \
-    dim3 grid(gridSize);                                                 \
-    dim3 block(blockSize);                                               \
-                                                                         \
-    CUDA_RUNTIME(cudaSetDevice(deviceId));                               \
-    if (!verbose)                                                        \
-      Log(info, "Launching kernel at file %s : %d", __FILE__, __LINE__); \
-    kernel<<<grid, block>>>(__VA_ARGS__);                                \
-    CUDA_RUNTIME(cudaGetLastError());                                    \
-    CUDA_RUNTIME(cudaDeviceSynchronize());                               \
+#define execKernel(kernel, gridSize, blockSize, deviceId, verbose, ...)                       \
+  {                                                                                           \
+    dim3 grid(gridSize);                                                                      \
+    dim3 block(blockSize);                                                                    \
+                                                                                              \
+    CUDA_RUNTIME(cudaSetDevice(deviceId));                                                    \
+    if (verbose)                                                                              \
+      Log(info, "Launching %s with nblocks: %u, blockDim: %u", #kernel, gridSize, blockSize); \
+    kernel<<<grid, block>>>(__VA_ARGS__);                                                     \
+    CUDA_RUNTIME(cudaGetLastError());                                                         \
+    CUDA_RUNTIME(cudaDeviceSynchronize());                                                    \
   }
 
 #define execKernel2(kernel, gridSize, blockSize, deviceId, verbose, ...) \

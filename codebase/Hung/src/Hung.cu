@@ -36,7 +36,7 @@ int main(int argc, char **argv)
   Log(debug, "LAP object generated succesfully");
   lap->solve();
   time = t.elapsed();
-  Log(info, "solve time %f s\n\n", time);
+  Log(critical, "solve time %f s\n\n", time);
 
   delete lap;
 }

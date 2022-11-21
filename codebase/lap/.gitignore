@@ -2,3 +2,5 @@ o/**
 .vscode
 .vscode/**
 cuLAP
+*.sh
+*.log

@@ -1,6 +1,11 @@
 #pragma once
 #include "../include/utils.cuh"
 
+__managed__ __device__ int zeros_size;     // The number fo zeros
+__managed__ __device__ int n_matches;      // Used in step 3 to count the number of matches found
+__managed__ __device__ bool goto_5;        // After step 4, goto step 5?
+__managed__ __device__ bool repeat_kernel; // Needs to repeat the step 2 and step 4 kernel?
+
 template <typename data = int>
 struct GLOBAL_HANDLE
 {
@@ -9,7 +14,7 @@ struct GLOBAL_HANDLE
   data *min_in_rows;
   data *min_in_cols;
 
-  int *zeros, *zeros_size_b;
+  uint *zeros, *zeros_size_b;
   int *row_of_star_at_column, *column_of_star_at_row;
   int *cover_row, *cover_column;
   int *column_of_prime_at_row, *row_of_green_at_column;
@@ -47,8 +52,3 @@ struct GLOBAL_HANDLE
 //   bool goto_5;
 //   bool repeat_kernel;
 // };
-
-__managed__ __device__ int zeros_size;     // The number fo zeros
-__managed__ __device__ int n_matches;      // Used in step 3 to count the number of matches found
-__managed__ __device__ bool goto_5;        // After step 4, goto step 5?
-__managed__ __device__ bool repeat_kernel; // Needs to repeat the step 2 and step 4 kernel?

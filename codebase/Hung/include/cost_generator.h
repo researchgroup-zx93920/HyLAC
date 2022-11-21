@@ -8,7 +8,7 @@
 using namespace std;
 
 template <typename T>
-T *generate_cost(Config config, const int seed)
+T *generate_cost(Config config, const int seed = 45345)
 {
   uint user_n = config.user_n;
   uint nrows = user_n;
@@ -30,7 +30,7 @@ T *generate_cost(Config config, const int seed)
         // 	printf("\n");
         double gen = distribution(generator);
         cost[user_n * c + r] = gen;
-        // cout << gen << "\t";
+        // cout << gen << " ";
       }
       else
       {
@@ -40,6 +40,7 @@ T *generate_cost(Config config, const int seed)
           cost[user_n * c + r] = UINT32_MAX;
       }
     }
+    // cout << endl;
   }
 
   return cost;

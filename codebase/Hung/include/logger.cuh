@@ -1,6 +1,7 @@
 #pragma once
 #include "defs.cuh"
 #include "utils.cuh"
+#include <string>
 
 template <bool NEWLINE = true, typename... Args>
 void Log(LogPriorityEnum l, const char *f, Args... args)
@@ -56,15 +57,25 @@ void Log(LogPriorityEnum l, const char *f, Args... args)
 }
 
 //#define Log(l_, f_, ...)printf((f_), __VA_ARGS__);
+
 template <typename data = int>
-void printDebugArray(const data *array, size_t len)
+void printDebugArray(const data *array, size_t len, std::string name = NULL)
 {
+  using namespace std;
   data *temp = new data[len];
   CUDA_RUNTIME(cudaMemcpy(temp, array, len * sizeof(data), cudaMemcpyDefault));
-  for (size_t i = 0; i < len; i++)
+
+  if (name != "NULL")
   {
-    std::cout << temp[i] << ',';
+    if (len < 1)
+      Log(debug, "%s", name.c_str());
+    else
+      Log<false>(debug, "%s: ", name.c_str());
   }
-  std::cout << std::endl;
+  for (size_t i = 0; i < len - 1; i++)
+  {
+    cout << temp[i] << ',';
+  }
+  cout << temp[len - 1] << '.' << endl;
   delete[] temp;
 }
