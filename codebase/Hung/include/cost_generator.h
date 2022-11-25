@@ -8,11 +8,11 @@
 using namespace std;
 
 template <typename T>
-T *generate_cost(Config config, const int seed)
+T *generate_cost(Config config, const int seed = 45345)
 {
-  uint user_n = config.user_n;
-  uint nrows = user_n;
-  uint ncols = user_n;
+  size_t user_n = config.user_n;
+  size_t nrows = user_n;
+  size_t ncols = user_n;
   double frac = config.frac;
   double range = frac * user_n;
 
@@ -20,9 +20,9 @@ T *generate_cost(Config config, const int seed)
   memset(cost, 0, user_n * user_n * sizeof(T));
   default_random_engine generator(seed);
   uniform_int_distribution<int> distribution(0, range - 1);
-  for (uint c = 0; c < ncols; c++)
+  for (size_t c = 0; c < ncols; c++)
   {
-    for (uint r = 0; r < nrows; r++)
+    for (size_t r = 0; r < nrows; r++)
     {
       if (c < user_n && r < user_n)
       {
@@ -30,7 +30,7 @@ T *generate_cost(Config config, const int seed)
         // 	printf("\n");
         double gen = distribution(generator);
         cost[user_n * c + r] = gen;
-        // cout << gen << "\t";
+        // cout << gen << " ";
       }
       else
       {
@@ -40,6 +40,7 @@ T *generate_cost(Config config, const int seed)
           cost[user_n * c + r] = UINT32_MAX;
       }
     }
+    // cout << endl;
   }
 
   return cost;

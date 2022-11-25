@@ -2,7 +2,7 @@
 *.DS_Store
 
 # Scratch
-Scratch
+Scratch/**
 
 # JetBrains
 .idea
@@ -12,5 +12,5 @@ Scratch
 .swo
 # 3rd_Party/test_execs/**
 .vscode/**
-# 3rd_Party/tests/**
 Sandbox/**
+3rd_Party/tests/**

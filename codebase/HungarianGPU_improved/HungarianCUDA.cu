@@ -62,8 +62,8 @@
 #define kmax(x, y) ((x > y) ? x : y)
 
 // User inputs: These values should be changed by the user
-const int user_n = 8192; // This is the size of the cost matrix as supplied by the user
-const double frac = 0.001;
+const int user_n = 4096; // This is the size of the cost matrix as supplied by the user
+const double frac = 1;
 const double epsilon = 0.0001; // used for comparisons for floating point numbers
 typedef int data;							 // data type of weight matrix
 
@@ -175,6 +175,7 @@ __global__ void convergence_check()
 inline __device__ cudaError_t d_checkCuda(cudaError_t result)
 {
 #if defined(DEBUG) || defined(_DEBUG)
+	printf("Reached line %u\n", __LINE__);
 	if (result != cudaSuccess)
 	{
 		printf("CUDA Runtime Error: %s\n",
@@ -222,7 +223,7 @@ __device__ void min_in_rows_warp_reduce(volatile data *sdata, int tid)
 		sdata[tid] = min(sdata[tid], sdata[tid + 1]);
 }
 
-__global__ void calc_min_in_rows()
+__global__ void calc_min_in_rows() // finds column minimum
 {
 	__shared__ data sdata[n_threads_reduction]; // One temporary result for each thread.
 
@@ -242,7 +243,6 @@ __global__ void calc_min_in_rows()
 									 // gridSize = 2^k * n, so that each thread always processes the same line or column
 	}
 	sdata[tid] = thread_min;
-
 	__syncthreads();
 	if (n_threads_reduction >= 1024 && n_rows_per_block < 1024)
 	{
@@ -279,7 +279,9 @@ __global__ void calc_min_in_rows()
 	if (tid < 32)
 		min_in_rows_warp_reduce(sdata, tid);
 	if (tid < n_rows_per_block)
+	{
 		min_in_rows[bid * n_rows_per_block + tid] = sdata[tid];
+	}
 }
 
 // a) Subtracting the column by the minimum in each column
@@ -775,7 +777,10 @@ __device__ void min_reduce2(volatile data *g_idata, volatile data *g_odata, unsi
 	if (tid < 32)
 		min_warp_reduce<blockSize>(sdata, tid);
 	if (tid == 0)
+	{
 		g_odata[blockIdx.x] = sdata[0];
+		printf("min in matrix: %u\n", g_odata[blockIdx.x]);
+	}
 }
 
 __global__ void step_6_init()
@@ -827,6 +832,26 @@ __global__ void min_reduce_kernel1()
 __global__ void min_reduce_kernel2()
 {
 	min_reduce2<n_threads_reduction / 2>(d_min_in_mat_vect, &d_min_in_mat, n_blocks_reduction);
+}
+
+__global__ void print_cover_col(int user_n1 = user_n)
+{
+	printf("Column cover\n");
+	for (int i = 0; i < user_n1 - 1; i++)
+	{
+		printf("%d,", cover_column[i]);
+	}
+	printf("%d.\n", cover_column[user_n1 - 1]);
+}
+
+__global__ void print_cover_row(int user_n1 = user_n)
+{
+	printf("Row cover\n");
+	for (int i = 0; i < user_n1 - 1; i++)
+	{
+		printf("%d,", cover_row[i]);
+	}
+	printf("%d.\n", cover_row[user_n1 - 1]);
 }
 
 __device__ inline long long int d_get_globaltime(void)
@@ -885,14 +910,15 @@ inline double get_timer_period(void)
 
 #define call_kernel(k, n_blocks, n_threads) call_kernel_s(k, n_blocks, n_threads, 0ll)
 
-#define call_kernel_s(k, n_blocks, n_threads, shared) \
-	{                                                   \
-		timer_start = dh_get_globaltime();                \
-		k<<<n_blocks, n_threads, shared>>>();             \
-		dh_checkCuda(cudaDeviceSynchronize());            \
-		timer_stop = dh_get_globaltime();                 \
-		k##_time += timer_stop - timer_start;             \
-		k##_runs++;                                       \
+#define call_kernel_s(k, n_blocks, n_threads, shared)                                                   \
+	{                                                                                                     \
+		printf("\033[1;32mLaunching %s with nblocks: %u, blockDim: %u\033[0m \n", #k, n_blocks, n_threads); \
+		timer_start = dh_get_globaltime();                                                                  \
+		k<<<n_blocks, n_threads, shared>>>();                                                               \
+		dh_checkCuda(cudaDeviceSynchronize());                                                              \
+		timer_stop = dh_get_globaltime();                                                                   \
+		k##_time += timer_stop - timer_start;                                                               \
+		k##_runs++;                                                                                         \
 	}
 // printf("Finished kernel " #k "(%d,%d,%lld)\n", n_blocks, n_threads, shared);			\
 // fflush(0);											\
@@ -924,8 +950,12 @@ void Hungarian_Algorithm()
 	declare_kernel(step_5a);
 	declare_kernel(step_5b);
 
+	declare_kernel(print_cover_row);
+	declare_kernel(print_cover_col);
+
 	// total_time_start = dh_get_globaltime();
 	// Initialization
+	printf("n-blocks: %d, n-threads: %d\n", n_blocks, n_threads);
 	call_kernel(init, n_blocks, n_threads);
 
 	// Step 1 kernels
@@ -938,6 +968,10 @@ void Hungarian_Algorithm()
 	call_kernel(compress_matrix, n_blocks_full, n_threads_full);
 	call_kernel(add_reduction, 1, n_blocks_step_4);
 
+	cudaDeviceSynchronize();
+	printf("zeros size: %d\n", zeros_size);
+	// exit(-1);
+
 	// Step 2 kernels
 	do
 	{
@@ -945,6 +979,7 @@ void Hungarian_Algorithm()
 		call_kernel(step_2, n_blocks_step_4, (n_blocks_step_4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size);
 		// If we have more than one block it means that we have 512 lines per block so 1024 threads should be adequate.
 	} while (repeat_kernel);
+	printf("zeros size: %d\n", zeros_size);
 
 	while (1)
 	{ // repeat steps 3 to 6
@@ -957,6 +992,8 @@ void Hungarian_Algorithm()
 
 		// step 4_kernels
 		call_kernel(step_4_init, n_blocks, n_threads);
+		// call_kernel(print_cover_col, 1, 1);
+		// call_kernel(print_cover_row, 1, 1);
 
 		while (1) // repeat step 4 and 6
 		{
@@ -970,6 +1007,10 @@ void Hungarian_Algorithm()
 				// If we have more than one block it means that we have 512 lines per block so 1024 threads should be adequate.
 
 			} while (repeat_kernel && !goto_5);
+			// printf("nBlocks: %d, nThreads: %d\n", n_blocks_step_4, (n_blocks_step_4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size);
+			// call_kernel(print_cover_col, 1, 1);
+			// call_kernel(print_cover_row, 1, 1);
+			// exit(-1);
 
 			if (goto_5)
 				break;
@@ -977,6 +1018,7 @@ void Hungarian_Algorithm()
 			// step 6_kernel
 			call_kernel_s(min_reduce_kernel1, n_blocks_reduction, n_threads_reduction, n_threads_reduction * sizeof(data));
 			call_kernel_s(min_reduce_kernel2, 1, n_blocks_reduction / 2, (n_blocks_reduction / 2) * sizeof(data));
+
 			call_kernel(step_6_init, 1, n_blocks_step_4);
 			call_kernel(step_6_add_sub_fused_compress_matrix, n_blocks_full, n_threads_full);
 
@@ -1021,7 +1063,7 @@ void Hungarian_Algorithm()
 int main(int argc, char **argv)
 {
 
-	cudaSetDevice(1);
+	cudaSetDevice(0);
 	// Constant checks:
 	check(n == (1 << log2_n), "Incorrect log2_n!");
 	check(n_threads * n_blocks == n, "n_threads*n_blocks != n\n");

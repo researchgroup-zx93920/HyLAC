@@ -1,3 +1,6 @@
 build/**
+logs/**
 *.log
 *.sh
+*.out
+*.supp
