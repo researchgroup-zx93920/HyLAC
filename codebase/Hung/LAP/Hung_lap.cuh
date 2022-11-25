@@ -10,7 +10,7 @@ class LAP
 {
 private:
   int dev_;
-  uint size_, h_nrows, h_ncols;
+  size_t size_, h_nrows, h_ncols;
   data *cost_;
 
   uint num_blocks_4, num_blocks_reduction;
@@ -18,16 +18,18 @@ private:
 public:
   GLOBAL_HANDLE<data> gh;
   // constructor
-  LAP(data *cost, uint size, int dev = 0) : cost_(cost), dev_(dev), size_(size)
+  LAP(data *cost, size_t size, int dev = 0) : cost_(cost), dev_(dev), size_(size)
   {
     h_nrows = size;
     h_ncols = size;
+
+    // constant memory copies
     CUDA_RUNTIME(cudaSetDevice(dev_));
     CUDA_RUNTIME(cudaMemcpyToSymbol(SIZE, &size, sizeof(SIZE)));
     CUDA_RUNTIME(cudaMemcpyToSymbol(nrows, &h_nrows, sizeof(SIZE)));
     CUDA_RUNTIME(cudaMemcpyToSymbol(ncols, &h_ncols, sizeof(SIZE)));
     num_blocks_4 = max((uint)ceil((size * 1.0) / columns_per_block_step_4), 1);
-    num_blocks_reduction = min(size, 256);
+    num_blocks_reduction = min(size, 256UL);
     CUDA_RUNTIME(cudaMemcpyToSymbol(NB4, &num_blocks_4, sizeof(NB4)));
     CUDA_RUNTIME(cudaMemcpyToSymbol(NBR, &num_blocks_reduction, sizeof(NBR)));
     const uint temp1 = ceil(size / num_blocks_reduction);
@@ -47,13 +49,14 @@ public:
     Log(debug, "l2dbs: %u", temp5);
     CUDA_RUNTIME(cudaMemcpyToSymbol(log2_data_block_size, &temp5, sizeof(log2_data_block_size)));
 
-    CUDA_RUNTIME(cudaMalloc((void **)&gh.cost, size * size * sizeof(data)));
+    // memory allocations
+    // CUDA_RUNTIME(cudaMalloc((void **)&gh.cost, size * size * sizeof(data)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.slack, size * size * sizeof(data)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.min_in_rows, h_nrows * sizeof(data)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.min_in_cols, h_ncols * sizeof(data)));
 
-    CUDA_RUNTIME(cudaMalloc((void **)&gh.zeros, h_nrows * h_ncols * sizeof(int)));
-    CUDA_RUNTIME(cudaMalloc((void **)&gh.zeros_size_b, num_blocks_4 * sizeof(int)));
+    CUDA_RUNTIME(cudaMalloc((void **)&gh.zeros, h_nrows * h_ncols * sizeof(size_t)));
+    CUDA_RUNTIME(cudaMalloc((void **)&gh.zeros_size_b, num_blocks_4 * sizeof(size_t)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.row_of_star_at_column, h_ncols * sizeof(int)));
     CUDA_RUNTIME(cudaMallocManaged((void **)&gh.column_of_star_at_row, h_nrows * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.cover_row, h_nrows * sizeof(int)));
@@ -67,23 +70,25 @@ public:
     CUDA_RUNTIME(cudaMalloc((void **)&gh.d_min_in_mat, 1 * sizeof(data)));
 
     CUDA_RUNTIME(cudaMemcpy(gh.slack, cost_, size * size * sizeof(data), cudaMemcpyDefault));
-    CUDA_RUNTIME(cudaMemcpy(gh.cost, cost_, size * size * sizeof(data), cudaMemcpyDefault));
+    // CUDA_RUNTIME(cudaMemcpy(gh.cost, cost_, size * size * sizeof(data), cudaMemcpyDefault));
 
     CUDA_RUNTIME(cudaDeviceSynchronize());
   };
 
   // destructor
-  // ~LAP()
-  // {
-
-  // };
+  ~LAP()
+  {
+    // Log(critical, "Destructor called");
+    gh.clear();
+  };
   void solve()
   {
-    const uint n_threads = (uint)min(size_, 64);
-    const uint n_threads_full = (uint)min(size_, 512);
+    const uint n_threads = (uint)min(size_, 64UL);
+    const uint n_threads_full = (uint)min(size_, 512UL);
 
-    const uint n_blocks = (uint)ceil((size_ * 1.0) / n_threads);
-    const uint n_blocks_full = (uint)ceil((size_ * size_ * 1.0) / n_threads_full);
+    const size_t n_blocks = (size_t)ceil((size_ * 1.0) / n_threads);
+    const size_t n_blocks_full = (size_t)ceil((size_ * size_ * 1.0) / n_threads_full);
+    Log(debug, "n blocks full %lu", n_blocks_full);
 
     execKernel(init, n_blocks, n_threads, dev_, false, gh);
     execKernel(calc_col_min, size_, n_threads_reduction, dev_, false, gh);
@@ -97,7 +102,7 @@ public:
     // execKernel((add_reduction), 1, (uint)ceil(max(size_ / columns_per_block_step_4, 1)), dev_, false, gh);
     zeros_size = thrust::reduce(thrust::device, gh.zeros_size_b, gh.zeros_size_b + num_blocks_4);
     Log(debug, "b4: %d", gh.nb4);
-    printDebugArray(gh.zeros_size_b, gh.nb4, "zeros size");
+    // printDebugArray(gh.zeros_size_b, gh.nb4, "zeros size");
     do
     {
       repeat_kernel = false;
@@ -180,8 +185,8 @@ public:
     } // repeat steps 3 to 6
 
     CUDA_RUNTIME(cudaFree(d_temp_storage));
-    // find objective
 
+    // find objective
     double total_cost = 0;
     for (uint r = 0; r < h_nrows; r++)
     {

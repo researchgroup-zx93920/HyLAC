@@ -39,4 +39,5 @@ int main(int argc, char **argv)
   Log(critical, "solve time %f s\n\n", time);
 
   delete lap;
+  delete[] h_costs;
 }
