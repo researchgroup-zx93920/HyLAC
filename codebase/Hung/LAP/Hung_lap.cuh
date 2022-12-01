@@ -69,6 +69,8 @@ public:
     CUDA_RUNTIME(cudaMalloc((void **)&gh.d_min_in_mat_vect, num_blocks_reduction * sizeof(data)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.d_min_in_mat, 1 * sizeof(data)));
 
+    CUDA_RUNTIME(cudaMallocManaged((void **)&gh.pi, h_ncols * sizeof(data)));
+
     CUDA_RUNTIME(cudaMemcpy(gh.slack, cost_, size * size * sizeof(data), cudaMemcpyDefault));
     // CUDA_RUNTIME(cudaMemcpy(gh.cost, cost_, size * size * sizeof(data), cudaMemcpyDefault));
 
@@ -131,57 +133,39 @@ public:
 
       execKernel(step_4_init, n_blocks, n_threads, dev_, false, gh);
 
-      // printDebugArray(gh.cover_column, size_, "Cover column");
-      // printDebugArray(gh.cover_row, size_, "Cover Rows");
-      // printDebugArray(gh.zeros_size_b, num_blocks_4, "zeros size per block");
-      // exit(-1);
-      while (1)
-      {
-        do
-        {
-          goto_5 = false;
-          repeat_kernel = false;
-          CUDA_RUNTIME(cudaDeviceSynchronize());
+      // while (1)
+      // {
+      //   do
+      //   {
+      //     goto_5 = false;
+      //     repeat_kernel = false;
+      //     CUDA_RUNTIME(cudaDeviceSynchronize());
+      //     uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
+      //     execKernel(step_4, gh.nb4, temp_blockdim, dev_, false, gh);
+      //   } while (repeat_kernel && !goto_5);
+      //   // exit(-1);
+      //   if (goto_5)
+      //     break;
+      //   // step 6
+      //   execKernel((min_reduce_kernel1<data, n_threads_reduction>),
+      //              num_blocks_reduction, n_threads_reduction, dev_, false,
+      //              gh.slack, gh.d_min_in_mat_vect, h_nrows * h_ncols, gh);
+      //   // finding minimum with cub
+      //   CUDA_RUNTIME(cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes1,
+      //                                          gh.d_min_in_mat_vect, gh.d_min_in_mat,
+      //                                          num_blocks_reduction, cub::Min(), MAX_DATA));
+      //   if (!passes_sanity_test(gh.d_min_in_mat))
+      //     exit(-1);
+      //   execKernel(step_6_init, ceil(num_blocks_4 * 1.0 / 256), 256, dev_, false, gh);
+      //   execKernel(step_6_add_sub_fused_compress_matrix, n_blocks_full, n_threads_full, dev_, false, gh);
+      //   // add_reduction
+      //   CUDA_RUNTIME(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes2, gh.zeros_size_b, &zeros_size, num_blocks_4));
+      // } // repeat step 4 and 6
+      // execKernel(step_5a, n_blocks, n_threads, dev_, false, gh);
+      // execKernel(step_5b, n_blocks, n_threads, dev_, false, gh);
 
-          uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
-          execKernel(step_4, gh.nb4, temp_blockdim, dev_, false, gh);
-        } while (repeat_kernel && !goto_5);
-
-        // exit(-1);
-        if (goto_5)
-          break;
-
-        // step 6
-        // printDebugArray(gh.cover_column, size_, "Column cover");
-        // printDebugArray(gh.cover_row, size_, "Row cover");
-        execKernel((min_reduce_kernel1<data, n_threads_reduction>),
-                   num_blocks_reduction, n_threads_reduction, dev_, false,
-                   gh.slack, gh.d_min_in_mat_vect, h_nrows * h_ncols, gh);
-
-        // printDebugArray(gh.d_min_in_mat_vect, num_blocks_reduction, "min vector");
-        // printDebugArray(gh.cover_column, size_, "Column cover");
-        // printDebugArray(gh.cover_row, size_, "Row cover");
-        // exit(-1);
-        // finding minimum with cub
-        CUDA_RUNTIME(cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes1,
-                                               gh.d_min_in_mat_vect, gh.d_min_in_mat,
-                                               num_blocks_reduction, cub::Min(), MAX_DATA));
-
-        if (!passes_sanity_test(gh.d_min_in_mat))
-          exit(-1);
-
-        execKernel(step_6_init, ceil(num_blocks_4 * 1.0 / 256), 256, dev_, false, gh);
-        execKernel(step_6_add_sub_fused_compress_matrix, n_blocks_full, n_threads_full, dev_, false, gh);
-
-        // add_reduction
-
-        CUDA_RUNTIME(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes2, gh.zeros_size_b, &zeros_size, num_blocks_4));
-
-        // printDebugArray(gh.zeros_size_b, num_blocks_4);
-      } // repeat step 4 and 6
-
-      execKernel(step_5a, n_blocks, n_threads, dev_, false, gh);
-      execKernel(step_5b, n_blocks, n_threads, dev_, false, gh);
+      shortest_path();
+      exit(-1);
     } // repeat steps 3 to 6
 
     CUDA_RUNTIME(cudaFree(d_temp_storage));
@@ -210,5 +194,24 @@ public:
     }
     else
       return true;
+  }
+
+  void shortest_path(uint k)
+  {
+#include <set>
+    CUDA_RUNTIME(cudaMemset(gh.pi, 1, h_nrows * sizeof(int))); // set to infinity
+
+    std::set<uint> SU, SV;
+    int sink = -1;
+    data delta = 0;
+    uint i = k;
+
+    while (sink == -1)
+    {
+      SU.insert(i)
+    }
+    
+
+    printDebugArray(gh.pi, h_nrows, "pi initialize test");
   }
 };

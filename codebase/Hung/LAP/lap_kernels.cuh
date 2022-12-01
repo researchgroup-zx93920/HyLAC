@@ -113,10 +113,6 @@ fundef compress_matrix(GLOBAL_HANDLE<data> gh)
       // atomicAdd(&zeros_size, 1);
       size_t b = i >> log2_data_block_size;
       size_t i0 = i & ~((size_t)data_block_size - 1); // == b << log2_data_block_size
-      // if (i0 != 0 || b != 0)
-      // {
-      //   printf("This problem is big! %u\n", i);
-      // }
 
       size_t j = (size_t)atomicAdd((uint64 *)&gh.zeros_size_b[b], 1ULL);
       gh.zeros[i0 + j] = i; // saves index of zeros in slack matrix per block
@@ -274,7 +270,7 @@ fundef step_4(GLOBAL_HANDLE<data> gh)
 
       if (!v_cover_column[c] && !v_cover_row[l])
       {
-        s_found = true; // find uncovered zero
+        s_found = true; // found uncovered zero
         s_repeat_kernel = true;
         gh.column_of_prime_at_row[l] = c; // prime the uncovered zero
 

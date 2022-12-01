@@ -20,6 +20,9 @@ struct GLOBAL_HANDLE
   int *cover_row, *cover_column;
   int *column_of_prime_at_row, *row_of_green_at_column;
 
+  // for alternating tree/SP
+  data *pi;
+
   data *max_in_mat_row, *max_in_mat_col, *d_min_in_mat_vect, *d_min_in_mat;
   int row_mask;
   uint nb4;
