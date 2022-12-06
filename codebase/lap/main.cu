@@ -21,16 +21,7 @@ int main(int argc, char **argv)
     long long total_time = 0;
     for (int test = 0; test < n_tests; test++)
     {
-        for (int i = 0; i < N; i++)
-        {
-            for (int k = 0; k < N; k++)
-            {
-                double gen = distribution(generator);
-                cout << gen << "\t";
-                C[N * i + k] = gen;
-            }
-            cout << endl;
-        }
+        double *C = generate_cost<double>(N, range / N);
 
         cudaSafeCall(cudaGetDevice(&devid), "cuda device unavailable!", __LINE__, __FILE__);
         // printHostMatrix(C, N, N, "LAP costs as read");

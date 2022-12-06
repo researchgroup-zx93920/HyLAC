@@ -35,7 +35,7 @@
 #include "defs.cuh"
 #include "iostream"
 #include "timing.cuh"
-
+#include "cost_generator.h"
 // Uncomment to use chars as the data type, otherwise use int
 // #define CHAR_DATA_TYPE
 
@@ -68,7 +68,6 @@ const double epsilon = 0.0001; // used for comparisons for floating point number
 typedef int data;							 // data type of weight matrix
 
 const int n = 1 << (klog2(user_n - 1) + 1); // The size of the cost/pay matrix used in the algorithm that is increased to a power of two
-const double range = frac * user_n;					// defines the range of the random matrix.
 const int n_tests = 1;											// defines the number of tests performed
 
 // End of user inputs
@@ -1076,37 +1075,10 @@ int main(int argc, char **argv)
 	check(n_threads_full * n_blocks_full <= n * n, "Step 6: The grid size is bigger than the matrix size!");
 	check(columns_per_block_step_4 * n == (1 << log2_data_block_size), "Columns per block of step 4 is not a power of two!");
 
-	default_random_engine generator(seed);
-	uniform_int_distribution<int> distribution(0, range - 1);
-
 	long long total_time = 0;
 	for (int test = 0; test < n_tests; test++)
 	{
-		// printf("\n\n\n\ntest %d\n", test);
-		// fflush(file);
-		for (int c = 0; c < ncols; c++)
-		{
-			for (int r = 0; r < nrows; r++)
-			{
-				if (c < user_n && r < user_n)
-				{
-					// if (r % user_n == 0 && c >0)
-					// 	printf("\n");
-					double gen = distribution(generator);
-					h_cost[c][r] = gen;
-					// cout << gen << "\t";
-				}
-				else
-				{
-					if (c == r)
-						h_cost[c][r] = 0;
-					else
-						h_cost[c][r] = MAX_DATA;
-				}
-			}
-		}
-		// printf("\n");
-
+		generate_cost<data, ncols, nrows>(h_cost, user_n, frac, seed);
 		// Copy vectors from host memory to device memory
 		cudaMemcpyToSymbol(slack, h_cost, sizeof(data) * nrows * ncols); // symbol refers to the device memory hence "To" means from Host to Device
 

@@ -30,7 +30,10 @@ int main(int argc, char **argv)
 
   time = t.elapsed();
   Log(debug, "cost generation time %f s", time);
-
+<<<<<<< HEAD
+  exit(-1);
+=======
+>>>>>>> cc9406e (Added multi-threaded cost matrix generator)
   t.reset();
   LAP<data> *lap = new LAP<data>(h_costs, user_n, dev);
   Log(debug, "LAP object generated succesfully");
