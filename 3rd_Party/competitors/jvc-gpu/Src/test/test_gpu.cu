@@ -2,19 +2,19 @@
 // required for multiple devices
 #define LAP_CUDA_OPENMP
 #define LAP_QUIET
-//#define LAP_DISPLAY_EVALUATED
-//#define LAP_DEBUG
-//#define LAP_NO_MEM_DEBUG
-//#define LAP_ROWS_SCANNED
-// should only be enabled for testing purposes
-//#define LAP_CUDA_ALLOW_WDDM
-//#define LAP_CUDA_COMPARE_CPU
+// #define LAP_DISPLAY_EVALUATED
+// #define LAP_DEBUG
+// #define LAP_NO_MEM_DEBUG
+// #define LAP_ROWS_SCANNED
+//  should only be enabled for testing purposes
+// #define LAP_CUDA_ALLOW_WDDM
+// #define LAP_CUDA_COMPARE_CPU
 #define LAP_MINIMIZE_V
 
 #define RANDOM_SEED 45345
 
 #include "../lap.h"
-
+#include "../core/cost_generator.h"
 #include <random>
 #include <string>
 #include "test_options.h"
@@ -153,7 +153,6 @@ int main(int argc, char *argv[])
 	{
 		if (opt.use_double)
 		{
-			printf("reached here\n");
 			if (opt.use_single)
 				testInteger<double>(opt.lap_min_tab, opt.lap_max_tab, opt.lap_max_memory, opt.runs, false, std::string("double"), opt.devices, opt.silent, opt.range);
 			if (opt.use_epsilon)
@@ -175,6 +174,7 @@ int main(int argc, char *argv[])
 		}
 		if (opt.use_long)
 		{
+			printf("\n\nsize: %lld\n", opt.lap_min_tab);
 			if (opt.use_single)
 				testInteger<long long>(opt.lap_min_tab, opt.lap_max_tab, opt.lap_max_memory, opt.runs, false, std::string("long long"), opt.devices, opt.silent, opt.range);
 			if (opt.use_epsilon)
@@ -715,6 +715,9 @@ void testInteger(long long min_tab, long long max_tab, long long max_memory, int
 				int N = (int)floor(sqrt((double)NN));
 
 				int max_devices = 1;
+				size_t free, total;
+				cudaMemGetInfo(&free, &total);
+				max_memory = free;
 				while ((size_t)max_devices * max_memory / sizeof(C) < (size_t)N * (size_t)N)
 					max_devices++;
 
