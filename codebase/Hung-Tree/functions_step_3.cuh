@@ -135,7 +135,7 @@ __global__ void kernel_coverAndExpand(bool *d_flag, Array d_vertices_csr_in, Mat
 void compactRowVertices(Predicates &d_vertex_predicates, VertexData *d_row_data_dev, Array &d_vertices_csr_out, Array &d_vertices_csr_in, unsigned int devid)
 {
 
-	cudaSetDevice(devid);
+	cudaSetDevice(devID);
 
 	int total_blocks = 0;
 	dim3 blocks_per_grid;
@@ -171,7 +171,7 @@ void compactRowVertices(Predicates &d_vertex_predicates, VertexData *d_row_data_
 // Function for covering the zeros in uncovered rows and expanding the frontier.
 void coverZeroAndExpand(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, Array &d_vertices_csr_in, bool *h_flag, int N, unsigned int devid)
 {
-	cudaSetDevice(devid);
+	cudaSetDevice(devID);
 
 	int total_blocks = 0;
 	dim3 blocks_per_grid;

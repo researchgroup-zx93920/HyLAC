@@ -111,7 +111,7 @@ __global__ void kernel_augmentation(int *d_row_assignments, int *d_col_assignmen
 void reversePass(VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, unsigned int devid)
 {
 
-	cudaSetDevice(devid);
+	cudaSetDevice(devID);
 
 	int total_blocks = 0;
 	dim3 blocks_per_grid;
@@ -158,7 +158,7 @@ void reversePass(VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, 
 void augmentationPass(Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, unsigned int devid)
 {
 
-	cudaSetDevice(devid);
+	cudaSetDevice(devID);
 
 	int total_blocks = 0;
 	dim3 blocks_per_grid;

@@ -43,7 +43,7 @@ __global__ void kernel_rowInitialization(int *d_visited, int *d_row_assignments,
 // Function for initializing all devices for execution of Step 2.
 void initializeStep2(Vertices h_vertices, Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, unsigned int devid)
 {
-	cudaSetDevice(devid);
+	cudaSetDevice(devID);
 
 	int total_blocks = 0;
 	dim3 blocks_per_grid;

@@ -14,7 +14,6 @@
 #include "functions_step_3.cuh"
 #include "functions_step_4.cuh"
 #include "functions_step_5.cuh"
-int devID = 0;
 
 class LinearAssignmentProblem
 {
