@@ -31,7 +31,6 @@ struct Vertices
 	int *col_covers;
 };
 
-
 struct CompactEdges
 {
 	int *neighbors;
@@ -53,5 +52,5 @@ struct VertexData
 	double *slack;
 };
 
-
+int devID = 1;
 #endif /* STRUCTURES_H_ */

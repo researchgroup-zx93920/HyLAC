@@ -11,11 +11,26 @@
 #include "variables.h"
 
 // Helper function for printing device errors.
-void cudaSafeCall(cudaError_t error, const char *message)
+// void cudaSafeCall(cudaError_t error, const char *message)
+// {
+// 	if (error != cudaSuccess)
+// 	{
+// 		std::cerr << "Error " << error << ": " << message << ": " << cudaGetErrorString(error) << std::endl;
+// 		exit(-1);
+// 	}
+// }
+
+#define cudaSafeCall(ans, message)                 \
+	{                                                \
+		gpuAssert((ans), message, __FILE__, __LINE__); \
+	}
+
+inline void gpuAssert(cudaError_t error, const char *message, const char *file, int line)
 {
+
 	if (error != cudaSuccess)
 	{
-		std::cerr << "Error " << error << ": " << message << ": " << cudaGetErrorString(error) << std::endl;
+		fprintf(stderr, "%s \n %s in %s at %d\n", cudaGetErrorString(error), message, file, line);
 		exit(-1);
 	}
 }

@@ -1,4 +1,4 @@
-CUDAFLAGS = -g -Xcompiler -fopenmp -lineinfo -O3 -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_80,code=compute_80
+CUDAFLAGS = -g -Xcompiler -fopenmp -lineinfo -O3 -arch=sm_70 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_70,code=compute_70
 
 all: main.o
 	g++ o/main.o -L/usr/local/cuda/lib64 -L/usr/local/cuda/lib64 -lcudart -lgomp -o cuLAP
