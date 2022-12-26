@@ -117,6 +117,10 @@ void LinearAssignmentProblem::initializeDevice(int devid)
 
 	cudaSetDevice(devID);
 
+	int actID = 0;
+	cudaGetDevice(&actID);
+	std::cout << "Active device: " << actID << std::endl;
+
 	cudaSafeCall(cudaMalloc((void **)(&d_vertices_dev[devid].row_assignments), N * sizeof(int)), "error in cudaMalloc d_row_assignment");
 	cudaSafeCall(cudaMalloc((void **)(&d_vertices_dev[devid].col_assignments), N * sizeof(int)), "error in cudaMalloc d_col_assignment");
 	cudaSafeCall(cudaMalloc((void **)(&d_vertices_dev[devid].row_covers), N * sizeof(int)), "error in cudaMalloc d_row_covers");
