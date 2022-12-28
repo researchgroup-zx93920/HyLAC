@@ -1,12 +1,4 @@
-/*
- * variables.h
- *
- *  Created on: Oct 30, 2014
- *      Author: ketandat
- */
-
-#ifndef VARIABLES_H_
-#define VARIABLES_H_
+#pragma once
 
 #define MAX_GRIDSIZE 65535
 #define INF 1000001
@@ -35,6 +27,3 @@
 #define REVERSE 3
 #define AUGMENT 4
 #define MODIFIED 5
-
-
-#endif /* VARIABLES_H_ */

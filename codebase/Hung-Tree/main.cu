@@ -1,7 +1,3 @@
-/*
- * Created by Ketan Date
- */
-
 #include <iostream>
 #include <fstream>
 #include <ctime>

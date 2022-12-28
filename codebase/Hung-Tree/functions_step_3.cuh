@@ -1,12 +1,10 @@
-/*
- * Created by Ketan Date
- */
-
+#pragma once
 #include <cuda.h>
+#include <cuda_runtime_api.h>
+
 #include <thrust/scan.h>
 #include <thrust/reduce.h>
 #include <thrust/device_ptr.h>
-#include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "structures.h"
 #include "variables.h"
@@ -165,7 +163,7 @@ void compactRowVertices(Predicates &d_vertex_predicates, VertexData *d_row_data_
 	thrust::device_ptr<long> ptr(d_vertex_predicates.addresses);
 	d_vertices_csr_out.size = thrust::reduce(ptr, ptr + d_vertex_predicates.size); // calculate total number of vertices.
 	thrust::exclusive_scan(ptr, ptr + d_vertex_predicates.size, ptr);							 // exclusive scan for calculating the scatter addresses.
-
+	cudaSafeCall(cudaDeviceSynchronize(), "Sync Error");
 	if (d_vertices_csr_out.size > 0)
 	{
 		cudaSafeCall(cudaMalloc((void **)(&d_vertices_csr_out.elements), d_vertices_csr_out.size * sizeof(int)),
@@ -197,6 +195,7 @@ void coverZeroAndExpand(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexDat
 
 // Function for executing recursive zero cover. Returns the next step (Step 4 or Step 5) depending on the presence of uncovered zeros.
 void executeZeroCover(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData *d_row_data_dev,
+											Predicates d_vertex_predicates,
 											VertexData *d_col_data_dev, bool *goto_4, size_t N, unsigned int devid)
 {
 
@@ -215,14 +214,8 @@ void executeZeroCover(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData 
 							 "Error in cudaMalloc d_vertices_csr1.elements"); // compact vertices initialized to the row ids.
 	calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, size);
 	// sets each element to its index
-	// kernel_step3_init<<<blocks_per_grid, threads_per_block>>>(d_vertices_csr1.elements, d_vertices_csr1.size);
+
 	execKernel(kernel_step3_init, blocks_per_grid, threads_per_block, d_vertices_csr1.elements, d_vertices_csr1.size);
-	Predicates d_vertex_predicates;
-	d_vertex_predicates.size = N;
-	cudaSafeCall(cudaMalloc((void **)(&d_vertex_predicates.predicates), d_vertex_predicates.size * sizeof(bool)),
-							 "Error in cudaMalloc d_vertex_predicates.predicates");
-	cudaSafeCall(cudaMalloc((void **)(&d_vertex_predicates.addresses), d_vertex_predicates.size * sizeof(long)),
-							 "Error in cudaMalloc d_vertex_predicates.addresses");
 
 	// Performs BFS
 	while (true)
@@ -237,7 +230,5 @@ void executeZeroCover(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData 
 		cudaSafeCall(cudaFree(d_vertices_csr2.elements), "Error in cudaFree d_vertices_csr2.elements");
 	}
 
-	cudaSafeCall(cudaFree(d_vertex_predicates.predicates), "Error in cudaFree d_vertex_predicates.predicates");
-	cudaSafeCall(cudaFree(d_vertex_predicates.addresses), "Error in cudaFree d_vertex_predicates.addresses");
 	cudaSafeCall(cudaFree(d_vertices_csr1.elements), "Error in cudaFree d_vertices_csr1.elements");
 }

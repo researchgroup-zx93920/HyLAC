@@ -1,8 +1,5 @@
-/*
- * Created by Ketan Date
- */
-
-#include "cuda_runtime.h"
+#pragma once
+#include <cuda_runtime_api.h>
 #include <thrust/scan.h>
 #include <thrust/reduce.h>
 #include <thrust/device_ptr.h>

@@ -1,12 +1,4 @@
-/*
- * Structures.h
- *
- *  Created on: Oct 30, 2014
- *      Author: ketandat
- */
-
-#ifndef STRUCTURES_H_
-#define STRUCTURES_H_
+#pragma once
 
 struct Array
 {
@@ -53,4 +45,3 @@ struct VertexData
 };
 
 int devID = 1;
-#endif /* STRUCTURES_H_ */

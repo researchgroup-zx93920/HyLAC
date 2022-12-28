@@ -1,10 +1,4 @@
-/*
- * LinearAssignmentProblem.cpp
- *
- *  Created on: Oct 30, 2014
- *      Author: ketandat
- */
-
+#pragma once
 #include <omp.h>
 #include "structures.h"
 #include "variables.h"
@@ -37,6 +31,7 @@ class LinearAssignmentProblem
 	Vertices h_vertices, *d_vertices_dev;
 	CompactEdges *d_edges_csr_dev;
 	VertexData *d_row_data_dev, *d_col_data_dev;
+	Predicates d_vertex_predicates;
 
 public:
 	LinearAssignmentProblem(size_t _size, int *_stepcounts, int _numdev);
@@ -143,6 +138,12 @@ void LinearAssignmentProblem::initializeDevice(int devid)
 
 	cudaSafeCall(cudaMemset(d_costs_dev[devid].row_duals, 0, N * sizeof(double)), "Error in cudaMemset d_row_duals");
 	cudaSafeCall(cudaMemset(d_costs_dev[devid].col_duals, 0, N * sizeof(double)), "Error in cudaMemset d_col_duals");
+
+	d_vertex_predicates.size = N;
+	cudaSafeCall(cudaMalloc((void **)(&d_vertex_predicates.predicates), d_vertex_predicates.size * sizeof(bool)),
+							 "Error in cudaMalloc d_vertex_predicates.predicates");
+	cudaSafeCall(cudaMalloc((void **)(&d_vertex_predicates.addresses), d_vertex_predicates.size * sizeof(long)),
+							 "Error in cudaMalloc d_vertex_predicates.addresses");
 }
 
 // Helper function for finalizing global variables and arrays on a single host.
@@ -168,6 +169,9 @@ void LinearAssignmentProblem::finalizeDev(int devid)
 	cudaSafeCall(cudaFree(d_costs_dev[devid].elements), "error in cudaFree d_edges.costs");
 	cudaSafeCall(cudaFree(d_costs_dev[devid].row_duals), "error in cudaFree d_edges.row_duals");
 	cudaSafeCall(cudaFree(d_costs_dev[devid].col_duals), "error in cudaFree d_edges.col_duals");
+
+	cudaSafeCall(cudaFree(d_vertex_predicates.predicates), "Error in cudaFree");
+	cudaSafeCall(cudaFree(d_vertex_predicates.addresses), "Error in cudaFree");
 
 	cudaDeviceReset();
 }
@@ -360,7 +364,8 @@ int LinearAssignmentProblem::hungarianStep3(bool count_time)
 	cudaMallocManaged((void **)&goto_4, sizeof(bool));
 
 	// execute zero cover algorithm.
-	executeZeroCover(d_costs_dev, d_vertices_dev, d_row_data_dev, d_col_data_dev, goto_4, N, 0);
+	executeZeroCover(d_costs_dev, d_vertices_dev, d_row_data_dev,
+									 d_vertex_predicates, d_col_data_dev, goto_4, N, 0);
 	cudaSafeCall(cudaDeviceSynchronize(), "Error in synchronizing device with host");
 
 	next = (*goto_4) ? 4 : 5;

@@ -3,10 +3,9 @@
 #include <iostream>
 #include <fstream>
 #include <cuda.h>
+#include <cuda_runtime_api.h>
 #include <thrust/scan.h>
 #include <cmath>
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
 #include "structures.h"
 #include "variables.h"
 
