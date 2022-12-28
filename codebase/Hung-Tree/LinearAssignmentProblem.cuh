@@ -18,9 +18,9 @@
 class LinearAssignmentProblem
 {
 
-	int N;
-	long N2;
-	long M; // total number of zero cost edges on a single host.
+	size_t N;
+	size_t N2;
+	size_t M; // total number of zero cost edges on a single host.
 
 	int initial_assignment_count;
 	int *stepcounts;
@@ -39,14 +39,13 @@ class LinearAssignmentProblem
 	VertexData *d_row_data_dev, *d_col_data_dev;
 
 public:
-	LinearAssignmentProblem(int _size, int *_stepcounts, int _numdev);
+	LinearAssignmentProblem(size_t _size, int *_stepcounts, int _numdev);
 	~LinearAssignmentProblem();
 
 	int solve(double *cost_matrix, double &obj_val);
 
 	void getAssignments(int *_row_assignments);
 	void getStepTimes(double *_steptimes) { memcpy(_steptimes, steptimes, 9 * sizeof(double)); };
-	void getStepCounts(int *_stepcounts) { _stepcounts = stepcounts; };
 
 private:
 	void initializeDevice(int devid);
@@ -61,7 +60,7 @@ private:
 	int hungarianStep6(bool count_time);
 };
 
-LinearAssignmentProblem::LinearAssignmentProblem(int _size, int *_stepcounts, int _numdev)
+LinearAssignmentProblem::LinearAssignmentProblem(size_t _size, int *_stepcounts, int _numdev)
 {
 
 	N = _size;
@@ -117,10 +116,6 @@ void LinearAssignmentProblem::initializeDevice(int devid)
 
 	cudaSetDevice(devID);
 
-	int actID = 0;
-	cudaGetDevice(&actID);
-	std::cout << "Active device: " << actID << std::endl;
-
 	cudaSafeCall(cudaMalloc((void **)(&d_vertices_dev[devid].row_assignments), N * sizeof(int)), "error in cudaMalloc d_row_assignment");
 	cudaSafeCall(cudaMalloc((void **)(&d_vertices_dev[devid].col_assignments), N * sizeof(int)), "error in cudaMalloc d_col_assignment");
 	cudaSafeCall(cudaMalloc((void **)(&d_vertices_dev[devid].row_covers), N * sizeof(int)), "error in cudaMalloc d_row_covers");
@@ -140,7 +135,7 @@ void LinearAssignmentProblem::initializeDevice(int devid)
 	cudaSafeCall(cudaMalloc((void **)(&d_col_data_dev[devid].parents), N * sizeof(int)), "Error in cudaMalloc d_col_data.parents");
 	cudaSafeCall(cudaMalloc((void **)(&d_col_data_dev[devid].children), N * sizeof(int)), "Error in cudaMalloc d_col_data.children");
 
-	cudaSafeCall(cudaMalloc((void **)(&d_costs_dev[devid].elements), N2 * sizeof(double)), "error in cudaMalloc d_edges.costs");
+	cudaSafeCall(cudaMalloc((void **)(&d_costs_dev[devid].elements), N2 * sizeof(double)), "error in cudaMalloc d_costs");
 	cudaSafeCall(cudaMalloc((void **)(&d_costs_dev[devid].row_duals), N * sizeof(double)), "error in cudaMalloc d_row_duals");
 	cudaSafeCall(cudaMalloc((void **)(&d_costs_dev[devid].col_duals), N * sizeof(double)), "error in cudaMalloc d_col_duals");
 
@@ -335,6 +330,14 @@ int LinearAssignmentProblem::hungarianStep2(bool count_time)
 
 	prevstep = 2;
 
+	if (next == 6)
+	{
+		cudaSafeCall(cudaMemcpy(h_vertices.row_assignments, d_vertices_dev[0].row_assignments, N * sizeof(int), cudaMemcpyDeviceToHost),
+								 "Error in cudaMemcpy d_vertices_dev[devid].row_assignments");
+		cudaSafeCall(cudaMemcpy(h_vertices.col_assignments, d_vertices_dev[0].col_assignments, N * sizeof(int), cudaMemcpyDeviceToHost),
+								 "Error in cudaMemcpy d_vertices_dev[devid].col_assignments");
+	}
+
 	return next;
 }
 
@@ -352,11 +355,15 @@ int LinearAssignmentProblem::hungarianStep3(bool count_time)
 
 	int next;
 
-	bool h_flag = false;
+	// bool goto_4 = false;
+	bool *goto_4;
+	cudaMallocManaged((void **)&goto_4, sizeof(bool));
 
-	executeZeroCover(d_costs_dev, d_vertices_dev, d_row_data_dev, d_col_data_dev, &h_flag, N, 0); // execute zero cover algorithm.
+	// execute zero cover algorithm.
+	executeZeroCover(d_costs_dev, d_vertices_dev, d_row_data_dev, d_col_data_dev, goto_4, N, 0);
+	cudaSafeCall(cudaDeviceSynchronize(), "Error in synchronizing device with host");
 
-	next = h_flag ? 4 : 5;
+	next = (*goto_4) ? 4 : 5;
 
 	///////////////////////////////////////////////////////////////
 
@@ -374,7 +381,7 @@ int LinearAssignmentProblem::hungarianStep3(bool count_time)
 	///////////////////////////////////////////////////////////////////
 
 	prevstep = 3;
-
+	cudaFree(goto_4);
 	return next;
 }
 

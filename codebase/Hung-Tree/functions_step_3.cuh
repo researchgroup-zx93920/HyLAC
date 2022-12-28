@@ -14,7 +14,7 @@
 
 __global__ void kernel_step3_init(int *d_vertex_ids, int row_count)
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t id = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (id < row_count)
 	{
@@ -26,8 +26,8 @@ __global__ void kernel_step3_init(int *d_vertex_ids, int row_count)
 __global__ void kernel_vertexPredicateConstructionCSR(Predicates d_vertex_predicates, Array d_vertices_csr_in, int *d_visited)
 {
 
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
-	int size = d_vertices_csr_in.size;
+	size_t id = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t size = d_vertices_csr_in.size;
 
 	// Copy the matrix into shared memory.
 	int vertexid = (id < size) ? d_vertices_csr_in.elements[id] : -1;
@@ -44,10 +44,11 @@ __global__ void kernel_vertexPredicateConstructionCSR(Predicates d_vertex_predic
 }
 
 // Kernel for scattering the vertices based on the scatter addresses.
-__global__ void kernel_vertexScatterCSR(int *d_vertex_ids_csr, int *d_vertex_ids, int *d_visited, Predicates d_vertex_predicates)
+__global__ void kernel_vertexScatterCSR(int *d_vertex_ids_csr, int *d_vertex_ids,
+																				int *d_visited, Predicates d_vertex_predicates)
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
-	int size = d_vertex_predicates.size;
+	size_t id = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t size = d_vertex_predicates.size;
 
 	// Copy the matrix into shared memory.
 	int vertexid = (id < size) ? d_vertex_ids[id] : -1;
@@ -66,7 +67,9 @@ __global__ void kernel_vertexScatterCSR(int *d_vertex_ids_csr, int *d_vertex_ids
 
 // Device function for traversing the neighbors from start pointer to end pointer and updating the covers.
 // The function sets d_next to 4 if there are uncovered zeros, indicating the requirement of Step 4 execution.
-__device__ void __traverse(Matrix d_costs, Vertices d_vertices, bool *d_flag, int *d_row_parents, int *d_col_parents, int *d_row_visited, int *d_col_visited, double *d_slacks, int *d_start_ptr, int *d_end_ptr, int colid, int N)
+__device__ void __traverse(Matrix d_costs, Vertices d_vertices, bool *d_flag,
+													 int *d_row_parents, int *d_col_parents, int *d_row_visited,
+													 int *d_col_visited, double *d_slacks, int *d_start_ptr, int *d_end_ptr, int colid, size_t N)
 {
 	int *ptr1 = d_start_ptr;
 
@@ -88,7 +91,7 @@ __device__ void __traverse(Matrix d_costs, Vertices d_vertices, bool *d_flag, in
 				d_col_parents[colid] = rowid;
 			}
 
-			if (d_slacks[colid] < EPSILON && d_slacks[colid] > -EPSILON)
+			if (near_zero(d_slacks[colid]))
 			{
 
 				if (nxt_rowid != -1)
@@ -115,9 +118,10 @@ __device__ void __traverse(Matrix d_costs, Vertices d_vertices, bool *d_flag, in
 }
 
 // Kernel for finding the minimum zero cover.
-__global__ void kernel_coverAndExpand(bool *d_flag, Array d_vertices_csr_in, Matrix d_costs, Vertices d_vertices, VertexData d_row_data, VertexData d_col_data, int N)
+__global__ void kernel_coverAndExpand(bool *d_flag, Array d_vertices_csr_in, Matrix d_costs,
+																			Vertices d_vertices, VertexData d_row_data, VertexData d_col_data, int N)
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t id = blockIdx.x * blockDim.x + threadIdx.x;
 
 	int in_size = d_vertices_csr_in.size;
 	int *st_ptr = d_vertices_csr_in.elements;
@@ -127,12 +131,14 @@ __global__ void kernel_coverAndExpand(bool *d_flag, Array d_vertices_csr_in, Mat
 
 	if (id < N)
 	{
-		__traverse(d_costs, d_vertices, d_flag, d_row_data.parents, d_col_data.parents, d_row_data.is_visited, d_col_data.is_visited, d_col_data.slack, st_ptr, end_ptr, id, N);
+		__traverse(d_costs, d_vertices, d_flag, d_row_data.parents, d_col_data.parents,
+							 d_row_data.is_visited, d_col_data.is_visited, d_col_data.slack, st_ptr, end_ptr, id, N);
 	}
 }
 
 // Function for compacting row vertices. Used in Step 3 (minimum zero cover).
-void compactRowVertices(Predicates &d_vertex_predicates, VertexData *d_row_data_dev, Array &d_vertices_csr_out, Array &d_vertices_csr_in, unsigned int devid)
+void compactRowVertices(Predicates &d_vertex_predicates, VertexData *d_row_data_dev,
+												Array &d_vertices_csr_out, Array &d_vertices_csr_in, unsigned int devid)
 {
 
 	cudaSetDevice(devID);
@@ -147,13 +153,14 @@ void compactRowVertices(Predicates &d_vertex_predicates, VertexData *d_row_data_
 
 	// printf("size: %u\n", d_vertices_csr_in.size);
 
-	cudaSafeCall(cudaMemset(d_vertex_predicates.predicates, false, d_vertex_predicates.size * sizeof(bool)), "Error in cudaMemset d_vertex_predicates.predicates");
-	cudaSafeCall(cudaMemset(d_vertex_predicates.addresses, 0, d_vertex_predicates.size * sizeof(long)), "Error in cudaMemset d_vertex_predicates.addresses");
+	cudaSafeCall(cudaMemset(d_vertex_predicates.predicates, false, d_vertex_predicates.size * sizeof(bool)),
+							 "Error in cudaMemset d_vertex_predicates.predicates");
+	cudaSafeCall(cudaMemset(d_vertex_predicates.addresses, 0, d_vertex_predicates.size * sizeof(long)),
+							 "Error in cudaMemset d_vertex_predicates.addresses");
 
 	calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, d_vertices_csr_in.size);
-
-	kernel_vertexPredicateConstructionCSR<<<blocks_per_grid, threads_per_block>>>(d_vertex_predicates, d_vertices_csr_in, d_row_data_dev[devid].is_visited);
-	cudaSafeCall(cudaGetLastError(), "Error in kernel_vertexPredicateConstructionCSR");
+	execKernel(kernel_vertexPredicateConstructionCSR, blocks_per_grid, threads_per_block,
+						 d_vertex_predicates, d_vertices_csr_in, d_row_data_dev[devid].is_visited);
 
 	thrust::device_ptr<long> ptr(d_vertex_predicates.addresses);
 	d_vertices_csr_out.size = thrust::reduce(ptr, ptr + d_vertex_predicates.size); // calculate total number of vertices.
@@ -161,15 +168,18 @@ void compactRowVertices(Predicates &d_vertex_predicates, VertexData *d_row_data_
 
 	if (d_vertices_csr_out.size > 0)
 	{
-		cudaSafeCall(cudaMalloc((void **)(&d_vertices_csr_out.elements), d_vertices_csr_out.size * sizeof(int)), "Error in cudaMalloc d_vertices_csr_out.elements");
+		cudaSafeCall(cudaMalloc((void **)(&d_vertices_csr_out.elements), d_vertices_csr_out.size * sizeof(int)),
+								 "Error in cudaMalloc d_vertices_csr_out.elements");
 
-		kernel_vertexScatterCSR<<<blocks_per_grid, threads_per_block>>>(d_vertices_csr_out.elements, d_vertices_csr_in.elements, d_row_data_dev[0].is_visited, d_vertex_predicates);
-		cudaSafeCall(cudaGetLastError(), "Error in kernel_vertexScatterCSR");
+		execKernel(kernel_vertexScatterCSR, blocks_per_grid, threads_per_block,
+							 d_vertices_csr_out.elements, d_vertices_csr_in.elements,
+							 d_row_data_dev[0].is_visited, d_vertex_predicates);
 	}
 }
 
 // Function for covering the zeros in uncovered rows and expanding the frontier.
-void coverZeroAndExpand(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, Array &d_vertices_csr_in, bool *h_flag, int N, unsigned int devid)
+void coverZeroAndExpand(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev,
+												Array &d_vertices_csr_in, bool *goto_4, size_t N, unsigned int devid)
 {
 	cudaSetDevice(devID);
 
@@ -179,19 +189,15 @@ void coverZeroAndExpand(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexDat
 
 	calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, N);
 
-	bool *d_flag;
-	cudaSafeCall(cudaMalloc((void **)&d_flag, sizeof(bool)), "Error in cudaMalloc d_flag");
-	cudaSafeCall(cudaMemcpy(d_flag, h_flag, sizeof(bool), cudaMemcpyHostToDevice), "Error in cudaMemcpy h_flag");
-
-	kernel_coverAndExpand<<<blocks_per_grid, threads_per_block>>>(d_flag, d_vertices_csr_in, d_costs_dev[devid], d_vertices_dev[devid], d_row_data_dev[devid], d_col_data_dev[devid], N);
-
-	cudaSafeCall(cudaMemcpy(h_flag, d_flag, sizeof(bool), cudaMemcpyDeviceToHost), "Error in cudaMemcpy d_next");
-
-	cudaSafeCall(cudaFree(d_flag), "Error in cudaFree d_next");
+	execKernel(kernel_coverAndExpand, blocks_per_grid, threads_per_block,
+						 goto_4, d_vertices_csr_in, d_costs_dev[devid],
+						 d_vertices_dev[devid], d_row_data_dev[devid], d_col_data_dev[devid], N);
+	// cudaSafeCall(cudaMemcpy(goto_4, d_flag, sizeof(bool), cudaMemcpyDeviceToHost), "Error in cudaMemcpy d_next");
 }
 
 // Function for executing recursive zero cover. Returns the next step (Step 4 or Step 5) depending on the presence of uncovered zeros.
-void executeZeroCover(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, bool *h_flag, int N, unsigned int devid)
+void executeZeroCover(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData *d_row_data_dev,
+											VertexData *d_col_data_dev, bool *goto_4, size_t N, unsigned int devid)
 {
 
 	Array d_vertices_csr1, d_vertices_csr2;
@@ -205,15 +211,20 @@ void executeZeroCover(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData 
 
 	d_vertices_csr1.size = size;
 
-	cudaSafeCall(cudaMalloc((void **)(&d_vertices_csr1.elements), d_vertices_csr1.size * sizeof(int)), "Error in cudaMalloc d_vertices_csr1.elements"); // compact vertices initialized to the row ids.
+	cudaSafeCall(cudaMalloc((void **)(&d_vertices_csr1.elements), d_vertices_csr1.size * sizeof(int)),
+							 "Error in cudaMalloc d_vertices_csr1.elements"); // compact vertices initialized to the row ids.
 	calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, size);
-	kernel_step3_init<<<blocks_per_grid, threads_per_block>>>(d_vertices_csr1.elements, d_vertices_csr1.size);
-
+	// sets each element to its index
+	// kernel_step3_init<<<blocks_per_grid, threads_per_block>>>(d_vertices_csr1.elements, d_vertices_csr1.size);
+	execKernel(kernel_step3_init, blocks_per_grid, threads_per_block, d_vertices_csr1.elements, d_vertices_csr1.size);
 	Predicates d_vertex_predicates;
 	d_vertex_predicates.size = N;
-	cudaSafeCall(cudaMalloc((void **)(&d_vertex_predicates.predicates), d_vertex_predicates.size * sizeof(bool)), "Error in cudaMalloc d_vertex_predicates.predicates");
-	cudaSafeCall(cudaMalloc((void **)(&d_vertex_predicates.addresses), d_vertex_predicates.size * sizeof(long)), "Error in cudaMalloc d_vertex_predicates.addresses");
+	cudaSafeCall(cudaMalloc((void **)(&d_vertex_predicates.predicates), d_vertex_predicates.size * sizeof(bool)),
+							 "Error in cudaMalloc d_vertex_predicates.predicates");
+	cudaSafeCall(cudaMalloc((void **)(&d_vertex_predicates.addresses), d_vertex_predicates.size * sizeof(long)),
+							 "Error in cudaMalloc d_vertex_predicates.addresses");
 
+	// Performs BFS
 	while (true)
 	{
 
@@ -221,9 +232,8 @@ void executeZeroCover(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData 
 
 		if (d_vertices_csr2.size == 0)
 			break;
-
-		coverZeroAndExpand(d_costs_dev, d_vertices_dev, d_row_data_dev, d_col_data_dev, d_vertices_csr2, h_flag, N, devid); // traverse the frontier, cover zeros and expand.
-
+		// traverse the frontier, cover zeros and expand.
+		coverZeroAndExpand(d_costs_dev, d_vertices_dev, d_row_data_dev, d_col_data_dev, d_vertices_csr2, goto_4, N, devid);
 		cudaSafeCall(cudaFree(d_vertices_csr2.elements), "Error in cudaFree d_vertices_csr2.elements");
 	}
 

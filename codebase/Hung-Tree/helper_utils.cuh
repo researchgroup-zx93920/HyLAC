@@ -10,16 +10,7 @@
 #include "structures.h"
 #include "variables.h"
 
-// Helper function for printing device errors.
-// void cudaSafeCall(cudaError_t error, const char *message)
-// {
-// 	if (error != cudaSuccess)
-// 	{
-// 		std::cerr << "Error " << error << ": " << message << ": " << cudaGetErrorString(error) << std::endl;
-// 		exit(-1);
-// 	}
-// }
-
+bool verbose = false;
 #define cudaSafeCall(ans, message)                 \
 	{                                                \
 		gpuAssert((ans), message, __FILE__, __LINE__); \
@@ -34,6 +25,15 @@ inline void gpuAssert(cudaError_t error, const char *message, const char *file, 
 		exit(-1);
 	}
 }
+
+#define execKernel(kernel, grid, block, ...)                                           \
+	{                                                                                    \
+		if (verbose)                                                                       \
+			printf("Launching %s with nblocks: %u, blockDim: %u", #kernel, grid.x, block.x); \
+		kernel<<<grid, block>>>(__VA_ARGS__);                                              \
+		cudaSafeCall(cudaGetLastError(), "Error in kernel launch");                        \
+		cudaSafeCall(cudaDeviceSynchronize(), "Error in Synchronization");                 \
+	}
 
 // Helper function for printing device memory info.
 void printMemoryUsage(double memory)
@@ -54,7 +54,7 @@ void printMemoryUsage(double memory)
 }
 
 // Function for calculating grid and block dimensions from the given input size.
-void calculateLinearDims(dim3 &blocks_per_grid, dim3 &threads_per_block, int &total_blocks, int size)
+void calculateLinearDims(dim3 &blocks_per_grid, dim3 &threads_per_block, int &total_blocks, size_t size)
 {
 	threads_per_block.x = BLOCKDIMX * BLOCKDIMY;
 	int value = (int)ceil((double)(size) / threads_per_block.x);
@@ -63,7 +63,7 @@ void calculateLinearDims(dim3 &blocks_per_grid, dim3 &threads_per_block, int &to
 }
 
 // Function for calculating grid and block dimensions from the given input size for square grid.
-void calculateSquareDims(dim3 &blocks_per_grid, dim3 &threads_per_block, int &total_blocks, int size)
+void calculateSquareDims(dim3 &blocks_per_grid, dim3 &threads_per_block, int &total_blocks, size_t size)
 {
 	threads_per_block.x = BLOCKDIMX;
 	threads_per_block.y = BLOCKDIMY;
@@ -79,7 +79,7 @@ void calculateSquareDims(dim3 &blocks_per_grid, dim3 &threads_per_block, int &to
 }
 
 // Function for calculating grid and block dimensions from the given input size for rectangular grid.
-void calculateRectangularDims(dim3 &blocks_per_grid, dim3 &threads_per_block, int &total_blocks, int xsize, int ysize)
+void calculateRectangularDims(dim3 &blocks_per_grid, dim3 &threads_per_block, int &total_blocks, size_t xsize, size_t ysize)
 {
 
 	threads_per_block.x = BLOCKDIMX;

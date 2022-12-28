@@ -48,9 +48,9 @@ __device__ void __reverse_traversal(int *d_row_visited, int *d_row_children, int
 }
 
 // Kernel for constructing the predicates for reverse pass or augmentation candidates.
-__global__ void kernel_augmentPredicateConstruction(Predicates d_predicates, int *d_visited, int offset, int size)
+__global__ void kernel_augmentPredicateConstruction(Predicates d_predicates, int *d_visited, int offset, size_t size)
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t id = blockIdx.x * blockDim.x + threadIdx.x;
 
 	// Copy the matrix into shared memory.
 	int visited = (id < size) ? d_visited[id + offset] : DORMANT;
@@ -65,9 +65,9 @@ __global__ void kernel_augmentPredicateConstruction(Predicates d_predicates, int
 }
 
 // Kernel for scattering the vertices based on the scatter addresses.
-__global__ void kernel_augmentScatter(Array d_vertex_ids, Predicates d_predicates, int offset, int size)
+__global__ void kernel_augmentScatter(Array d_vertex_ids, Predicates d_predicates, int offset, size_t size)
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t id = blockIdx.x * blockDim.x + threadIdx.x;
 
 	bool predicate = (id < size) ? d_predicates.predicates[id] : false;
 	long compid = (predicate) ? d_predicates.addresses[id] : -1; // compaction id.
@@ -82,7 +82,7 @@ __global__ void kernel_augmentScatter(Array d_vertex_ids, Predicates d_predicate
 // Kernel for executing the reverse pass of the maximum matching algorithm.
 __global__ void kernel_reverseTraversal(Array d_col_vertices, VertexData d_row_data, VertexData d_col_data)
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t id = blockIdx.x * blockDim.x + threadIdx.x;
 	int size = d_col_vertices.size;
 
 	int colid = (id < size) ? d_col_vertices.elements[id] : -1;
@@ -96,8 +96,8 @@ __global__ void kernel_reverseTraversal(Array d_col_vertices, VertexData d_row_d
 // Kernel for executing the augmentation pass of the maximum matching algorithm.
 __global__ void kernel_augmentation(int *d_row_assignments, int *d_col_assignments, Array d_row_vertices, VertexData d_row_data, VertexData d_col_data)
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
-	int size = d_row_vertices.size;
+	size_t id = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t size = d_row_vertices.size;
 
 	int rowid = (id < size) ? d_row_vertices.elements[id] : -1;
 
@@ -108,7 +108,7 @@ __global__ void kernel_augmentation(int *d_row_assignments, int *d_col_assignmen
 }
 
 // Function for executing reverse pass of the maximum matching.
-void reversePass(VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, unsigned int devid)
+void reversePass(VertexData *d_row_data_dev, VertexData *d_col_data_dev, size_t N, unsigned int devid)
 {
 
 	cudaSetDevice(devID);
@@ -128,7 +128,7 @@ void reversePass(VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, 
 	cudaSafeCall(cudaMemset(d_col_predicates.addresses, 0, d_col_predicates.size * sizeof(long)), "Error in cudaMemset d_col_predicates.addresses");
 
 	// compact the reverse pass row vertices.
-	kernel_augmentPredicateConstruction<<<blocks_per_grid, threads_per_block>>>(d_col_predicates, d_col_data_dev[devid].is_visited, 0, N);
+	execKernel(kernel_augmentPredicateConstruction, blocks_per_grid, threads_per_block, d_col_predicates, d_col_data_dev[devid].is_visited, 0, N);
 
 	thrust::device_ptr<long> ptr(d_col_predicates.addresses);
 	d_col_ids_csr.size = thrust::reduce(ptr, ptr + d_col_predicates.size); // calculate total number of vertices.
@@ -143,9 +143,9 @@ void reversePass(VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, 
 
 		cudaSafeCall(cudaMalloc((void **)(&d_col_ids_csr.elements), d_col_ids_csr.size * sizeof(int)), "Error in cudaMalloc d_col_ids_csr.elements");
 
-		kernel_augmentScatter<<<blocks_per_grid, threads_per_block>>>(d_col_ids_csr, d_col_predicates, 0, N);
+		execKernel(kernel_augmentScatter, blocks_per_grid, threads_per_block, d_col_ids_csr, d_col_predicates, 0, N);
 
-		kernel_reverseTraversal<<<blocks_per_grid_1, threads_per_block_1>>>(d_col_ids_csr, d_row_data_dev[devid], d_col_data_dev[devid]);
+		execKernel(kernel_reverseTraversal, blocks_per_grid_1, threads_per_block_1, d_col_ids_csr, d_row_data_dev[devid], d_col_data_dev[devid]);
 
 		cudaSafeCall(cudaFree(d_col_ids_csr.elements), "Error in cudaFree d_col_ids_csr.elements");
 	}
@@ -155,7 +155,7 @@ void reversePass(VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, 
 }
 
 // Function for executing augmentation pass of the maximum matching.
-void augmentationPass(Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, unsigned int devid)
+void augmentationPass(Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, size_t N, unsigned int devid)
 {
 
 	cudaSetDevice(devID);
@@ -175,7 +175,7 @@ void augmentationPass(Vertices *d_vertices_dev, VertexData *d_row_data_dev, Vert
 	cudaSafeCall(cudaMemset(d_row_predicates.addresses, 0, d_row_predicates.size * sizeof(long)), "Error in cudaMemset d_row_predicates.addresses");
 
 	// compact the reverse pass row vertices.
-	kernel_augmentPredicateConstruction<<<blocks_per_grid, threads_per_block>>>(d_row_predicates, d_row_data_dev[devid].is_visited, 0, N);
+	execKernel(kernel_augmentPredicateConstruction, blocks_per_grid, threads_per_block, d_row_predicates, d_row_data_dev[devid].is_visited, 0, N);
 
 	thrust::device_ptr<long> ptr(d_row_predicates.addresses);
 	d_row_ids_csr.size = thrust::reduce(ptr, ptr + d_row_predicates.size); // calculate total number of vertices.
@@ -190,9 +190,9 @@ void augmentationPass(Vertices *d_vertices_dev, VertexData *d_row_data_dev, Vert
 
 		cudaSafeCall(cudaMalloc((void **)(&d_row_ids_csr.elements), d_row_ids_csr.size * sizeof(int)), "Error in cudaMalloc d_row_ids_csr.elements");
 
-		kernel_augmentScatter<<<blocks_per_grid, threads_per_block>>>(d_row_ids_csr, d_row_predicates, 0, N);
+		execKernel(kernel_augmentScatter, blocks_per_grid, threads_per_block, d_row_ids_csr, d_row_predicates, 0, N);
 
-		kernel_augmentation<<<blocks_per_grid_1, threads_per_block_1>>>(d_vertices_dev[devid].row_assignments, d_vertices_dev[devid].col_assignments, d_row_ids_csr, d_row_data_dev[devid], d_col_data_dev[devid]);
+		execKernel(kernel_augmentation, blocks_per_grid_1, threads_per_block_1, d_vertices_dev[devid].row_assignments, d_vertices_dev[devid].col_assignments, d_row_ids_csr, d_row_data_dev[devid], d_col_data_dev[devid]);
 
 		cudaSafeCall(cudaFree(d_row_ids_csr.elements), "Error in cudaFree d_row_ids_csr.elements");
 	}

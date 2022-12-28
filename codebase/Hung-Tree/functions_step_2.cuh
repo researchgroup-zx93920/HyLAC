@@ -31,17 +31,15 @@ __global__ void kernel_computeRowCovers(int *d_row_assignments, int *d_row_cover
 __global__ void kernel_rowInitialization(int *d_visited, int *d_row_assignments, int row_start, int row_count)
 {
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
-
-	int assignment = (id < row_count) ? d_row_assignments[id + row_start] : -1;
-
 	if (id < row_count)
 	{
+		int assignment = d_row_assignments[id + row_start];
 		d_visited[id] = (assignment == -1) ? ACTIVE : DORMANT;
 	}
 }
 
 // Function for initializing all devices for execution of Step 2.
-void initializeStep2(Vertices h_vertices, Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, unsigned int devid)
+void initializeStep2(Vertices h_vertices, Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, size_t N, unsigned int devid)
 {
 	cudaSetDevice(devID);
 
@@ -49,11 +47,12 @@ void initializeStep2(Vertices h_vertices, Vertices *d_vertices_dev, VertexData *
 	dim3 blocks_per_grid;
 	dim3 threads_per_block;
 
-	int size = N;
+	size_t size = N;
 	int start = 0;
 
-	cudaSafeCall(cudaMemcpy(h_vertices.row_assignments, d_vertices_dev[devid].row_assignments, N * sizeof(int), cudaMemcpyDeviceToHost), "Error in cudaMemcpy d_vertices_dev[devid].row_assignments");
-	cudaSafeCall(cudaMemcpy(h_vertices.col_assignments, d_vertices_dev[devid].col_assignments, N * sizeof(int), cudaMemcpyDeviceToHost), "Error in cudaMemcpy d_vertices_dev[devid].col_assignments");
+	// Not need to do it all the times!
+	// cudaSafeCall(cudaMemcpy(h_vertices.row_assignments, d_vertices_dev[devid].row_assignments, N * sizeof(int), cudaMemcpyDeviceToHost), "Error in cudaMemcpy d_vertices_dev[devid].row_assignments");
+	// cudaSafeCall(cudaMemcpy(h_vertices.col_assignments, d_vertices_dev[devid].col_assignments, N * sizeof(int), cudaMemcpyDeviceToHost), "Error in cudaMemcpy d_vertices_dev[devid].col_assignments");
 
 	cudaSafeCall(cudaMemset(d_vertices_dev[devid].row_covers, 0, N * sizeof(int)), "Error in cudaMemset d_row_covers");
 	cudaSafeCall(cudaMemset(d_vertices_dev[devid].col_covers, 0, N * sizeof(int)), "Error in cudaMemset d_col_covers");
@@ -68,11 +67,12 @@ void initializeStep2(Vertices h_vertices, Vertices *d_vertices_dev, VertexData *
 	cudaSafeCall(cudaMemset(d_col_data_dev[devid].children, -1, N * sizeof(int)), "Error in cudaMemset d_col_data.children");
 
 	calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, size);
-	kernel_rowInitialization<<<blocks_per_grid, threads_per_block>>>(d_row_data_dev[devid].is_visited, d_vertices_dev[devid].row_assignments, start, size);
+	execKernel(kernel_rowInitialization, blocks_per_grid, threads_per_block,
+						 d_row_data_dev[devid].is_visited, d_vertices_dev[devid].row_assignments, start, size);
 }
 
 // Function for finding row cover on individual devices.
-int computeRowCovers(Vertices *d_vertices_dev, int N, unsigned int devid)
+int computeRowCovers(Vertices *d_vertices_dev, size_t N, unsigned int devid)
 {
 
 	dim3 blocks_per_grid;
@@ -80,8 +80,8 @@ int computeRowCovers(Vertices *d_vertices_dev, int N, unsigned int devid)
 	int total_blocks = 0;
 
 	calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, N);
-	kernel_computeRowCovers<<<blocks_per_grid, threads_per_block>>>(d_vertices_dev[devid].row_assignments, d_vertices_dev[devid].row_covers, N); // Kernel execution.
-	cudaSafeCall(cudaGetLastError(), "Error in kernel_computeRowCovers execution");
+	execKernel(kernel_computeRowCovers, blocks_per_grid, threads_per_block,
+						 d_vertices_dev[devid].row_assignments, d_vertices_dev[devid].row_covers, N);
 
 	thrust::device_ptr<int> ptr(d_vertices_dev[devid].row_covers);
 
@@ -91,7 +91,7 @@ int computeRowCovers(Vertices *d_vertices_dev, int N, unsigned int devid)
 }
 
 // Function for copying row cover array back to each device.
-void updateRowCovers(Vertices *d_vertices_dev, int *h_row_covers, int N, unsigned int devid)
+void updateRowCovers(Vertices *d_vertices_dev, int *h_row_covers, size_t N, unsigned int devid)
 {
 	cudaSetDevice(devid);
 	cudaSafeCall(cudaMemcpy(d_vertices_dev[devid].row_covers, h_row_covers, N * sizeof(int), cudaMemcpyHostToDevice), "Error in cudaMemcpy h_row_covers");

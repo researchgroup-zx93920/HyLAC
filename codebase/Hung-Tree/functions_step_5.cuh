@@ -13,9 +13,11 @@
 #include "helper_utils.cuh"
 
 // Kernel for updating the dual reduced costs in Step 5.
-__global__ void kernel_dualUpdate_2(double d_min_val, double *d_row_duals, double *d_col_duals, double *d_col_slacks, int *d_row_cover, int *d_col_cover, int *d_col_parents, int *d_row_visited, int row_start, int row_count, int N)
+__global__ void kernel_dualUpdate_2(double d_min_val, double *d_row_duals, double *d_col_duals,
+																		double *d_col_slacks, int *d_row_cover, int *d_col_cover, int *d_col_parents,
+																		int *d_row_visited, int row_start, int row_count, size_t N)
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t id = blockIdx.x * blockDim.x + threadIdx.x;
 
 	int row_cover = (id < row_count) ? d_row_cover[id + row_start] : -1;
 	int col_cover = (id < N) ? d_col_cover[id] : -1;
@@ -52,7 +54,7 @@ __global__ void kernel_dualUpdate_2(double d_min_val, double *d_row_duals, doubl
 	}
 }
 
-void computeTheta(double &h_device_min, Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, int N, unsigned int devid)
+void computeTheta(double &h_device_min, Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexData *d_row_data_dev, VertexData *d_col_data_dev, size_t N, unsigned int devid)
 {
 
 	dim3 blocks_per_grid;
@@ -84,8 +86,9 @@ void computeTheta(double &h_device_min, Matrix *d_costs_dev, Vertices *d_vertice
 
 	h_device_min /= 2;
 
-	kernel_dualUpdate_2<<<blocks_per_grid, threads_per_block>>>(h_device_min, d_costs_dev[devid].row_duals, d_costs_dev[devid].col_duals, d_col_data_dev[devid].slack, d_vertices_dev[devid].row_covers, d_vertices_dev[devid].col_covers, d_col_data_dev[devid].parents, d_row_data_dev[devid].is_visited, 0, N, N);
-	cudaSafeCall(cudaGetLastError(), "Error in kernel_dualUpdate_2 execution");
+	execKernel(kernel_dualUpdate_2, blocks_per_grid, threads_per_block, h_device_min, d_costs_dev[devid].row_duals,
+						 d_costs_dev[devid].col_duals, d_col_data_dev[devid].slack, d_vertices_dev[devid].row_covers,
+						 d_vertices_dev[devid].col_covers, d_col_data_dev[devid].parents, d_row_data_dev[devid].is_visited, 0, N, N);
 
 	delete[] temp;
 	delete[] temp2;
