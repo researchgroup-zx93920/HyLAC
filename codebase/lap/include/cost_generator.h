@@ -3,27 +3,21 @@
 #include <omp.h>
 #include <thread>
 #include <fstream>
-#include "config.h"
-#include "Timer.h"
-#include "logger.cuh"
-#include "defs.cuh"
 
 using namespace std;
 
 template <typename T>
-T *generate_cost(Config config, const int seed = 45345)
+T *generate_cost(size_t user_n, double frac, const int seed = 45345)
 {
-  size_t user_n = config.user_n;
   size_t nrows = user_n;
   size_t ncols = user_n;
-  double frac = config.frac;
   double range = frac * user_n;
 
   T *cost = new T[user_n * user_n];
   memset(cost, 0, user_n * user_n * sizeof(T));
 
   // use all available CPU threads for generating cost
-  uint nthreads = min(user_n, (size_t)thread::hardware_concurrency() - 3); // remove 3 threads for OS and other tasks
+  uint nthreads = thread::hardware_concurrency() - 3; // remove 3 threads for OS and other tasks
   uint rows_per_thread = ceil((nrows * 1.0) / nthreads);
 #pragma omp parallel for num_threads(nthreads)
   for (uint tid = 0; tid < nthreads; tid++)

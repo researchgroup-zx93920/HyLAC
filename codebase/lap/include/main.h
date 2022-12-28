@@ -19,6 +19,7 @@
 #include <chrono>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "cost_generator.h"
 
 #include "culap.h"
 

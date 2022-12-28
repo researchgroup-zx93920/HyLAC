@@ -2,7 +2,7 @@ NVCC ?= nvcc
 TARGET_EXEC ?= a.out
 
 # EXEDIR=../test_execs
-BUILD_DIR ?=./build
+BUILD_DIR ?=./build1
 OBJ_DIR ?=$(BUILD_DIR)/o
 EXE_DIR ?= $(BUILD_DIR)/exe
 
@@ -19,10 +19,10 @@ DEPS := $(OBJS:.o=.d)
 INCL_DIRS := #./include $(FREESTAND_DIR)/include 
 INC_FLAGS := $(addprefix -I,$(INCL_DIRS))
 
-LDFLAGS := -lcuda
+LDFLAGS := -lcuda -lgomp
 CPPFLAGS ?= $(INC_FLAGS) -std=c++11 -O3
-CUDAFLAGS ?= $(INC_FLAGS) -g -Xcompiler -rdynamic -lineinfo -O3 -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_80,code=compute_80
-CUDADEBUGFLAGS ?= $(INC_FLAGS) -w -g -G -Xcompiler -rdynamic -O3 -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_80,code=compute_80
+CUDAFLAGS ?= $(INC_FLAGS) -g -Xcompiler -fopenmp -lineinfo -O3 -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_80,code=compute_80
+CUDADEBUGFLAGS ?= $(INC_FLAGS) -w -g -G -Xcompiler -rdynamic -fopenmp -O3 -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_80,code=compute_80
 
 NVCCOPTIONS ?=
 

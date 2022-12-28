@@ -3,20 +3,16 @@
 #include <omp.h>
 #include <thread>
 #include <fstream>
-#include "config.h"
-#include "Timer.h"
-#include "logger.cuh"
-#include "defs.cuh"
 
 using namespace std;
 
 template <typename T>
-T *generate_cost(Config config, const int seed = 45345)
+T *generate_cost(int problemSize, double costrange, const int seed = 45345)
 {
-  size_t user_n = config.user_n;
+  size_t user_n = (size_t)problemSize;
   size_t nrows = user_n;
   size_t ncols = user_n;
-  double frac = config.frac;
+  double frac = costrange;
   double range = frac * user_n;
 
   T *cost = new T[user_n * user_n];

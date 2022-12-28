@@ -1,0 +1,6 @@
+[submodule "Doc/533-tex-report"]
+	path = Doc/533-tex-report
+	url = https://git.overleaf.com/6241d13eabf017b9ebe19988
+[submodule "3rd_Party/competitors/ketan-tree/CuLAP"]
+	path = 3rd_Party/competitors/ketan-tree/CuLAP
+	url = git@github.com:researchgroup-zx93920/CuLAP.git

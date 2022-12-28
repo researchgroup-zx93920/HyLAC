@@ -3,27 +3,19 @@
 #include <omp.h>
 #include <thread>
 #include <fstream>
-#include "config.h"
-#include "Timer.h"
-#include "logger.cuh"
-#include "defs.cuh"
 
 using namespace std;
 
-template <typename T>
-T *generate_cost(Config config, const int seed = 45345)
+template <typename T, int ncols, int nrows>
+void generate_cost(T (&cost)[ncols][nrows], const int user_n, const double frac, const int seed = 45345)
 {
-  size_t user_n = config.user_n;
-  size_t nrows = user_n;
-  size_t ncols = user_n;
-  double frac = config.frac;
   double range = frac * user_n;
 
-  T *cost = new T[user_n * user_n];
+  // T *cost = new T[user_n * user_n];
   memset(cost, 0, user_n * user_n * sizeof(T));
 
   // use all available CPU threads for generating cost
-  uint nthreads = min(user_n, (size_t)thread::hardware_concurrency() - 3); // remove 3 threads for OS and other tasks
+  uint nthreads = (user_n < thread::hardware_concurrency() - 3) ? user_n : thread::hardware_concurrency() - 3; // remove 3 threads for OS and other tasks
   uint rows_per_thread = ceil((nrows * 1.0) / nthreads);
 #pragma omp parallel for num_threads(nthreads)
   for (uint tid = 0; tid < nthreads; tid++)
@@ -40,14 +32,14 @@ T *generate_cost(Config config, const int seed = 45345)
         if (c < user_n && r < user_n)
         {
           double gen = distribution(generator);
-          cost[user_n * r + c] = gen;
+          cost[r][c] = gen;
         }
         else
         {
           if (c == r)
-            cost[user_n * c + r] = 0;
+            cost[r][c] = 0;
           else
-            cost[user_n * c + r] = UINT32_MAX;
+            cost[r][c] = UINT32_MAX;
         }
       }
     }
@@ -90,5 +82,4 @@ T *generate_cost(Config config, const int seed = 45345)
   //   out << freq[i] << ",\n";
   // }
   // delete[] freq;
-  return cost;
 }
