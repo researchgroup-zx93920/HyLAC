@@ -6,7 +6,7 @@ BUILD_DIR ?=./build1
 OBJ_DIR ?=$(BUILD_DIR)/o
 EXE_DIR ?= $(BUILD_DIR)/exe
 
-SRC_DIRS ?= ./src
+SRC_DIRS ?= .
 
 SRCS := $(shell find $(SRC_DIRS) -name *.cpp -or -name *.c -or -name *.s -or -name *.cu)
 SRCS_NAMES := $(shell find $(SRC_DIRS) -name *.cpp -or -name *.c -or -name *.s -or -name *.cu -printf "%f\n")
@@ -15,16 +15,19 @@ EXES := $(SRCS:%=$(BUILD_DIR)/exe/%.exe)
 DEBUG_OBJS := $(SRCS:%=$(BUILD_DIR)/debug_objs/%.o)
 DEBUG_EXES := $(SRCS:%=$(BUILD_DIR)/debug_exes/%.exe)
 DEPS := $(OBJS:.o=.d)
+ARCH := $(shell ./get_SM.sh)
+
 
 INCL_DIRS := #./include $(FREESTAND_DIR)/include 
 INC_FLAGS := $(addprefix -I,$(INCL_DIRS))
 
 LDFLAGS := -lcuda -lgomp
 CPPFLAGS ?= $(INC_FLAGS) -std=c++11 -O3
-CUDAFLAGS ?= $(INC_FLAGS) -g -Xcompiler -fopenmp -lineinfo -O3 -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_80,code=compute_80
-CUDADEBUGFLAGS ?= $(INC_FLAGS) -w -g -G -Xcompiler -rdynamic -fopenmp -O3 -arch=sm_80 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_80,code=compute_80
+CUDAFLAGS ?= $(INC_FLAGS) -g -Xcompiler -fopenmp -lineinfo -O3 -arch=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=compute_$(ARCH)
+CUDADEBUGFLAGS ?= $(INC_FLAGS) -w -g -G -Xcompiler -rdynamic -fopenmp -O3 -arch=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=compute_$(ARCH)
 
 NVCCOPTIONS ?=
+
 
 all: objs release_exes
 dbg: debug_objs debug_exes
@@ -60,19 +63,8 @@ $(BUILD_DIR)/debug_objs/%.cu.o: %.cu
 
 clean:
 	$(RM) -r $(BUILD_DIR)
+	@echo SM_VALUE IS $(ARCH)
 -include $(DEPS)
 
+
 MKDIR_P ?= mkdir -p
-
-# all: HungarianCUDA.cu
-# 	nvcc -lineinfo --generate-code arch=compute_80,code=compute_80 HungarianCUDA.cu --compiler-options -mcmodel=medium \
-# 	-std=c++11 -lcuda -o $(EXEDIR)/LAP19
-
-# debug: HungarianCUDA.cu
-# 	nvcc -rdc=true -G -g --generate-code arch=compute_70,code=compute_70 HungarianCUDA.cu \
-# 	-std=c++11 -o $(DBGDIR)/LAP19_dbg
-
-# clean:
-# 	rm -f $(EXEDIR)/LAP19
-# 	rm -f $(DBGDIR)/LAP19_dbg
-# 	rm -f *.o
