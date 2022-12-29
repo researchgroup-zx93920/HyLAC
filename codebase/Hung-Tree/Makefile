@@ -2,7 +2,7 @@ NVCC ?= nvcc
 TARGET_EXEC ?= a.out
 
 # EXEDIR=../test_execs
-BUILD_DIR ?=./build1
+BUILD_DIR ?=./build
 OBJ_DIR ?=$(BUILD_DIR)/o
 EXE_DIR ?= $(BUILD_DIR)/exe
 
