@@ -2,7 +2,7 @@ NVCC ?= nvcc
 TARGET_EXEC ?= a.out
 
 # EXEDIR=../test_execs
-BUILD_DIR ?=./build1
+BUILD_DIR ?=./build
 OBJ_DIR ?=$(BUILD_DIR)/o
 EXE_DIR ?= $(BUILD_DIR)/exe
 
@@ -18,7 +18,7 @@ DEPS := $(OBJS:.o=.d)
 ARCH := $(shell ./get_SM.sh)
 
 
-INCL_DIRS := #./include $(FREESTAND_DIR)/include 
+INCL_DIRS := #./include $(FREESTAND_DIR)/include
 INC_FLAGS := $(addprefix -I,$(INCL_DIRS))
 
 LDFLAGS := -lcuda -lgomp
