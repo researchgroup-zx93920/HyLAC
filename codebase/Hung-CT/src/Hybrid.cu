@@ -3,11 +3,12 @@
 #include <assert.h>
 #include <iostream>
 #include <cmath>
-// #include <timing.cuh>
+
 #include "../include/defs.cuh"
 #include "../include/config.h"
 #include "../include/cost_generator.h"
-#include "../LAP/Hung_lap.cuh"
+
+#include "../LAP/HLAP.cuh"
 
 int main(int argc, char **argv)
 {
@@ -17,26 +18,26 @@ int main(int argc, char **argv)
   printConfig(config);
 
   int seed = config.seed;
-  int user_n = config.user_n;
+  int size = config.size;
   int dev = config.deviceId;
 
-  typedef int data;
-  // typedef double data;
+  typedef uint data;
   // typedef float data;
+  // typedef double data;
+
   double time;
   Timer t;
-
   data *h_costs = generate_cost<data>(config, seed);
-
-  time = t.elapsed();
+  time = t.elapsed_and_reset();
   Log(debug, "cost generation time %f s", time);
-  t.reset();
-  LAP<data> *lap = new LAP<data>(h_costs, user_n, dev);
-  Log(debug, "LAP object generated succesfully");
-  lap->solve();
-  time = t.elapsed();
-  Log(critical, "solve time %f s\n\n", time);
 
-  delete lap;
+  HLAP lpx = HLAP(h_costs, size, dev);
+  time = t.elapsed_and_reset();
+  Log(debug, "HLAP object generation time %f s", time);
+
+  lpx.solve();
+  time = t.elapsed_and_reset();
+  Log(info, "Solve time %f s", time);
+
   delete[] h_costs;
 }

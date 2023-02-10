@@ -1,0 +1,11 @@
+build*/**
+nsys/**
+logs/**
+*.log
+*.csv
+*.sh
+*.out
+*.supp
+
+# Negated files
+!get_SM.sh
