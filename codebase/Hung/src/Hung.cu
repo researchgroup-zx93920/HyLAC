@@ -27,12 +27,14 @@ int main(int argc, char **argv)
   Timer t;
 
   data *h_costs = generate_cost<data>(config, seed);
-
+  // printDebugMatrix(h_costs, user_n, user_n, "cost matrix");
   time = t.elapsed();
   Log(debug, "cost generation time %f s", time);
   t.reset();
   LAP<data> *lap = new LAP<data>(h_costs, user_n, dev);
-  Log(debug, "LAP object generated succesfully");
+  time = t.elapsed();
+  Log(debug, "LAP object generated succesfully in %f s", time);
+  t.reset();
   lap->solve();
   time = t.elapsed();
   Log(critical, "solve time %f s\n\n", time);

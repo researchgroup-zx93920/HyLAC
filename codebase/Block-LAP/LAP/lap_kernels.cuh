@@ -21,7 +21,8 @@ const int max_threads_per_block = 1024;
 const int columns_per_block_step_4 = 512;
 const int n_threads_reduction = 512;
 
-fundef init(GLOBAL_HANDLE<data> gh) // with single block
+template <typename data = int>
+__device__ __forceinline__ void init(GLOBAL_HANDLE<data> &gh) // with single block
 {
   // initializations
   // for step 2
@@ -34,14 +35,15 @@ fundef init(GLOBAL_HANDLE<data> gh) // with single block
   }
 }
 
-fundef calc_col_min(GLOBAL_HANDLE<data> gh) // with single block
+template <typename data = int>
+__device__ __forceinline__ void calc_col_min(GLOBAL_HANDLE<data> &gh) // with single block
 {
   for (size_t col = 0; col < SIZE; col++)
   {
     size_t i = (size_t)threadIdx.x * SIZE + col;
     data thread_min = (data)MAX_DATA;
 
-    while (i <= SIZE * SIZE)
+    while (i <= SIZE * (SIZE - 1) + col)
     {
       thread_min = min(thread_min, gh.slack[i]);
       i += (size_t)blockDim.x * SIZE;
@@ -51,12 +53,15 @@ fundef calc_col_min(GLOBAL_HANDLE<data> gh) // with single block
     __shared__ typename BR::TempStorage temp_storage;
     thread_min = BR(temp_storage).Reduce(thread_min, cub::Min());
     if (threadIdx.x == 0)
+    {
       gh.min_in_rows[col] = thread_min;
+    }
     __syncthreads();
   }
 }
 
-fundef col_sub(GLOBAL_HANDLE<data> gh) // with single block
+template <typename data = int>
+__device__ void col_sub(GLOBAL_HANDLE<data> &gh) // with single block
 {
   // uint i = (size_t)blockDim.x * (size_t)blockIdx.x + (size_t)threadIdx.x;
   for (size_t i = threadIdx.x; i < SIZE * SIZE; i += blockDim.x)
@@ -66,7 +71,8 @@ fundef col_sub(GLOBAL_HANDLE<data> gh) // with single block
   }
 }
 
-fundef calc_row_min(GLOBAL_HANDLE<data> gh) // with single block
+template <typename data = int>
+__device__ void calc_row_min(GLOBAL_HANDLE<data> &gh) // with single block
 {
 
   typedef cub::BlockReduce<data, n_threads_reduction> BR;
@@ -89,7 +95,8 @@ fundef calc_row_min(GLOBAL_HANDLE<data> gh) // with single block
   }
 }
 
-fundef row_sub(GLOBAL_HANDLE<data> gh) // with single block
+template <typename data = int>
+__device__ void row_sub(GLOBAL_HANDLE<data> &gh) // with single block
 {
   for (size_t i = threadIdx.x; i < SIZE * SIZE; i += blockDim.x)
   {
@@ -106,7 +113,8 @@ __device__ bool near_zero(data val)
   return ((val < epsilon) && (val > -epsilon));
 }
 
-fundef compress_matrix(GLOBAL_HANDLE<data> gh) // with single block
+template <typename data = int>
+__device__ void compress_matrix(GLOBAL_HANDLE<data> &gh) // with single block
 {
   // size_t i = (size_t)blockDim.x * (size_t)blockIdx.x + (size_t)threadIdx.x;
   for (size_t i = threadIdx.x; i < SIZE * SIZE; i += blockDim.x)
@@ -144,9 +152,11 @@ fundef add_reduction(GLOBAL_HANDLE<data> gh)
   }
 }
 
-fundef step_2(GLOBAL_HANDLE<data> gh)
+template <typename data = int>
+__device__ void step_2(GLOBAL_HANDLE<data> &gh, uint temp_blockdim)
 {
   uint i = threadIdx.x;
+
   uint b = blockIdx.x;
   __shared__ bool repeat;
   __shared__ bool s_repeat_kernel;
@@ -159,7 +169,7 @@ fundef step_2(GLOBAL_HANDLE<data> gh)
     if (i == 0)
       repeat = false;
     __syncthreads();
-    for (int j = i; j < zeros_size; j += blockDim.x)
+    for (int j = i; j < min(zeros_size, temp_blockdim); j += blockDim.x)
     {
       uint z = gh.zeros[(b << log2_data_block_size) + j];
       uint l = z % nrows;
@@ -191,7 +201,8 @@ fundef step_2(GLOBAL_HANDLE<data> gh)
     repeat_kernel = true;
 }
 
-fundef step_3_init(GLOBAL_HANDLE<data> gh) // For single block
+template <typename data = int>
+__device__ void step_3_init(GLOBAL_HANDLE<data> &gh) // For single block
 {
   for (size_t i = threadIdx.x; i < nrows; i += blockDim.x)
   {
@@ -202,7 +213,8 @@ fundef step_3_init(GLOBAL_HANDLE<data> gh) // For single block
     n_matches = 0;
 }
 
-fundef step_3(GLOBAL_HANDLE<data> gh) // For single block
+template <typename data = int>
+__device__ void step_3(GLOBAL_HANDLE<data> &gh) // For single block
 {
   // size_t i = (size_t)blockDim.x * (size_t)blockIdx.x + (size_t)threadIdx.x;
   __shared__ int matches;
@@ -230,7 +242,8 @@ fundef step_3(GLOBAL_HANDLE<data> gh) // For single block
 // uncovered zeros left. Save the smallest uncovered value and
 // Go to Step 6.
 
-fundef step_4_init(GLOBAL_HANDLE<data> gh)
+template <typename data = int>
+__device__ void step_4_init(GLOBAL_HANDLE<data> &gh)
 {
   for (size_t i = threadIdx.x; i < SIZE; i += blockDim.x)
   {
@@ -239,7 +252,8 @@ fundef step_4_init(GLOBAL_HANDLE<data> gh)
   }
 }
 
-fundef step_4(GLOBAL_HANDLE<data> gh)
+template <typename data = int>
+__device__ void step_4(GLOBAL_HANDLE<data> &gh, uint temp_blockdim)
 {
   __shared__ bool s_found;
   __shared__ bool s_goto_5;
@@ -260,7 +274,7 @@ fundef step_4(GLOBAL_HANDLE<data> gh)
     if (i == 0)
       s_found = false;
     __syncthreads();
-    for (size_t j = threadIdx.x; j < zeros_size; j += blockDim.x)
+    for (size_t j = threadIdx.x; j < min(zeros_size, temp_blockdim); j += blockDim.x)
     {
       // each thread picks a zero!
       size_t z = gh.zeros[(size_t)(b << (size_t)log2_data_block_size) + j];
@@ -295,8 +309,8 @@ fundef step_4(GLOBAL_HANDLE<data> gh)
 }
 
 template <typename data = int, uint blockSize = n_threads_reduction>
-__global__ void min_reduce_kernel1(volatile data *g_idata, volatile data *g_odata,
-                                   const size_t n, GLOBAL_HANDLE<data> gh)
+__device__ void min_reduce_kernel1(volatile data *g_idata, volatile data *g_odata,
+                                   const size_t n, GLOBAL_HANDLE<data> &gh)
 {
   __shared__ data sdata[blockSize];
   const uint tid = threadIdx.x;
@@ -336,7 +350,8 @@ __global__ void min_reduce_kernel1(volatile data *g_idata, volatile data *g_odat
     g_odata[blockIdx.x] = minimum;
 }
 
-fundef step_6_init(GLOBAL_HANDLE<data> gh)
+template <typename data = int>
+__device__ void step_6_init(GLOBAL_HANDLE<data> &gh)
 {
   // size_t id = (size_t)threadIdx.x + (size_t)blockIdx.x * (size_t)blockDim.x;
   if (threadIdx.x == 0)
@@ -355,7 +370,8 @@ zero of the series, star each primed zero of the series, erase
 all primes and uncover every line in the matrix. Return to Step 3.*/
 
 // Eliminates joining paths
-fundef step_5a(GLOBAL_HANDLE<data> gh)
+template <typename data = int>
+__device__ void step_5a(GLOBAL_HANDLE<data> gh)
 {
   // size_t i = (size_t)blockDim.x * (size_t)blockIdx.x + (size_t)threadIdx.x;
   for (size_t i = threadIdx.x; i < SIZE; i += blockDim.x)
@@ -377,7 +393,8 @@ fundef step_5a(GLOBAL_HANDLE<data> gh)
 }
 
 // Applies the alternating paths
-fundef step_5b(GLOBAL_HANDLE<data> gh)
+template <typename data = int>
+__device__ void step_5b(GLOBAL_HANDLE<data> &gh)
 {
   // size_t j = (size_t)blockDim.x * (size_t)blockIdx.x + (size_t)threadIdx.x;
   for (size_t j = threadIdx.x; j < SIZE; j += blockDim.x)
@@ -408,7 +425,8 @@ fundef step_5b(GLOBAL_HANDLE<data> gh)
   }
 }
 
-fundef step_6_add_sub_fused_compress_matrix(GLOBAL_HANDLE<data> gh) // For single block
+template <typename data = int>
+__device__ void step_6_add_sub_fused_compress_matrix(GLOBAL_HANDLE<data> &gh) // For single block
 {
   // STEP 6:
   /*STEP 6: Add the minimum uncovered value to every element of each covered
@@ -442,5 +460,134 @@ fundef step_6_add_sub_fused_compress_matrix(GLOBAL_HANDLE<data> gh) // For singl
       size_t j = (size_t)atomicAdd(&zeros_size, 1);
       gh.zeros[i0 + j] = i;
     }
+  }
+}
+
+template <typename data = int>
+__device__ void printArray(data *idata)
+{
+
+  __syncthreads();
+  if (threadIdx.x == 0)
+  {
+    for (uint i = 0; i < SIZE; i++)
+    {
+      printf("%d, ", idata[i]);
+    }
+    printf("\n\n");
+  }
+  __syncthreads();
+}
+
+template <typename data = int>
+__device__ void printMatrix(data *idata)
+{
+
+  __syncthreads();
+  if (threadIdx.x == 0)
+  {
+    for (uint i = 0; i < SIZE; i++)
+    {
+      for (uint j = 0; j < SIZE; j++)
+      {
+        printf("%d, ", idata[SIZE * i + j]);
+      }
+      printf("\n");
+    }
+    printf("\n\n");
+  }
+  __syncthreads();
+}
+
+template <typename data = int>
+__global__ void BHA(GLOBAL_HANDLE<data> gh)
+{
+  init(gh);
+  // printMatrix(gh.slack);
+  calc_col_min(gh);
+  // printArray(gh.min_in_rows);
+  __syncthreads();
+  col_sub(gh);
+  __syncthreads();
+  // printMatrix(gh.slack);
+  calc_row_min(gh);
+  __syncthreads();
+  row_sub(gh);
+  __syncthreads();
+  compress_matrix(gh);
+  __syncthreads();
+  // checkpoint();
+  do
+  {
+    __syncthreads();
+    if (threadIdx.x == 0)
+      repeat_kernel = false;
+    __syncthreads();
+    uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
+    step_2(gh, temp_blockdim);
+    __syncthreads();
+  } while (repeat_kernel);
+  __syncthreads();
+  if (threadIdx.x == 0)
+  {
+    printf("zeros size %d\n", zeros_size);
+  }
+  __syncthreads();
+  // checkpoint();
+  while (1)
+  {
+    __syncthreads();
+    step_3_init(gh);
+    __syncthreads();
+    step_3(gh);
+    __syncthreads();
+    if (n_matches >= SIZE)
+      break;
+    step_4_init(gh);
+    __syncthreads();
+    // checkpoint();
+    while (1)
+    {
+      __syncthreads();
+      do
+      {
+        if (threadIdx.x == 0)
+        {
+          goto_5 = false;
+          repeat_kernel = false;
+        }
+        __syncthreads();
+        uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
+        step_4(gh, temp_blockdim);
+        __syncthreads();
+      } while (repeat_kernel && !goto_5);
+      __syncthreads();
+      if (goto_5)
+        break;
+      // checkpoint();
+
+      __syncthreads();
+
+      min_reduce_kernel1<data, n_threads_reduction>(gh.slack, gh.d_min_in_mat, SIZE * SIZE, gh);
+      __syncthreads();
+      if (gh.d_min_in_mat[0] <= 0)
+      {
+        __syncthreads();
+        if (threadIdx.x == 0)
+          printf("minimum element in matrix is non positive\n%d", gh.d_min_in_mat[0]);
+        return;
+      }
+      __syncthreads();
+      step_6_init(gh);
+      __syncthreads();
+      step_6_add_sub_fused_compress_matrix(gh);
+      __syncthreads();
+    }
+    __syncthreads();
+    // checkpoint();
+    step_5a(gh);
+    __syncthreads();
+    step_5b(gh);
+    __syncthreads();
   }
 }

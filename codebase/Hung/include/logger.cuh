@@ -56,7 +56,7 @@ void Log(LogPriorityEnum l, const char *f, Args... args)
   }
 }
 
-//#define Log(l_, f_, ...)printf((f_), __VA_ARGS__);
+// #define Log(l_, f_, ...)printf((f_), __VA_ARGS__);
 
 template <typename data = int>
 void printDebugArray(const data *array, size_t len, std::string name = NULL)
@@ -77,5 +77,27 @@ void printDebugArray(const data *array, size_t len, std::string name = NULL)
     cout << temp[i] << ',';
   }
   cout << temp[len - 1] << '.' << endl;
+  delete[] temp;
+}
+
+template <typename data = int>
+void printDebugMatrix(const data *array, size_t nrows, size_t ncols, std::string name = NULL)
+{
+  using namespace std;
+  size_t len = nrows * ncols;
+  data *temp = new data[len];
+  CUDA_RUNTIME(cudaMemcpy(temp, array, len * sizeof(data), cudaMemcpyDefault));
+  if (name != "NULL")
+  {
+    Log(debug, "%s", name.c_str());
+  }
+  for (size_t i = 0; i < nrows; i++)
+  {
+    for (size_t j = 0; j < ncols - 1; j++)
+    {
+      cout << temp[i * ncols + j] << ", ";
+    }
+    cout << temp[i * ncols + ncols - 1] << endl;
+  }
   delete[] temp;
 }

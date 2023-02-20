@@ -121,7 +121,7 @@ public:
     CUDA_RUNTIME(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes2, gh.zeros_size_b, &zeros_size, num_blocks_4));
     size_t temp_storage_bytes = max(temp_storage_bytes1, temp_storage_bytes2);
     CUDA_RUNTIME(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-
+    // printDebugMatrix(gh.slack, size_, size_, "slack");
     while (1)
     {
       execKernel(step_3_init, n_blocks, n_threads, dev_, false, gh);
@@ -148,11 +148,13 @@ public:
         } while (repeat_kernel && !goto_5);
 
         // exit(-1);
+        // printDebugMatrix(gh.slack, size_, size_, "slack");
+        // printDebugArray(gh.cover_column, size_, "Column cover");
         if (goto_5)
           break;
 
         // step 6
-        // printDebugArray(gh.cover_column, size_, "Column cover");
+
         // printDebugArray(gh.cover_row, size_, "Row cover");
         execKernel((min_reduce_kernel1<data, n_threads_reduction>),
                    num_blocks_reduction, n_threads_reduction, dev_, false,

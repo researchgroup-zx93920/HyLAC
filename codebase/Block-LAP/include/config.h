@@ -48,6 +48,7 @@ static Config parseArgs(int argc, char **argv)
       break;
     case 'f':
       config.frac = std::stod(optarg);
+      break;
     case 'd':
       config.deviceId = atoi(optarg);
       break;

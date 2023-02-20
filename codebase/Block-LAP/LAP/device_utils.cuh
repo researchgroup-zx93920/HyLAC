@@ -6,6 +6,14 @@ __managed__ __device__ int n_matches;      // Used in step 3 to count the number
 __managed__ __device__ bool goto_5;        // After step 4, goto step 5?
 __managed__ __device__ bool repeat_kernel; // Needs to repeat the step 2 and step 4 kernel?
 
+#define checkpoint()                                 \
+  {                                                  \
+    __syncthreads();                                 \
+    if (threadIdx.x == 0)                            \
+      printf("Reached %s:%u\n", __FILE__, __LINE__); \
+    __syncthreads();                                 \
+  }
+
 template <typename data = int>
 struct GLOBAL_HANDLE
 {

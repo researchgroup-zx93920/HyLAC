@@ -87,75 +87,75 @@ public:
   void solve()
   {
     uint nprob = 1;
-    const uint n_threads = (uint)min(size_, 512UL);
+    const uint n_threads = 512UL;
     const uint n_threads_full = (uint)min(size_ * size_, 512UL);
     const size_t n_blocks = (size_t)ceil((size_ * 1.0) / n_threads);
 
-    execKernel(init, nprob, n_threads, dev_, false, gh);
-    execKernel(calc_col_min, nprob, n_threads_reduction, dev_, false, gh);
-    execKernel(col_sub, nprob, n_threads, dev_, false, gh);
+    execKernel(BHA<data>, nprob, n_threads, dev_, false, gh);
+    // execKernel(calc_col_min, nprob, n_threads_reduction, dev_, false, gh);
+    // execKernel(col_sub, nprob, n_threads, dev_, false, gh);
 
-    execKernel(calc_row_min, nprob, n_threads_reduction, dev_, false, gh);
-    execKernel(row_sub, nprob, n_threads, dev_, false, gh);
-    execKernel(compress_matrix, nprob, n_threads, dev_, false, gh);
+    // execKernel(calc_row_min, nprob, n_threads_reduction, dev_, false, gh);
+    // execKernel(row_sub, nprob, n_threads, dev_, false, gh);
+    // execKernel(compress_matrix, nprob, n_threads, dev_, false, gh);
 
     // use thrust instead of add reduction
-    Log(debug, "b4: %d", gh.nb4);
-    do
-    {
-      repeat_kernel = false;
-      uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
-      execKernel(step_2, gh.nb4, temp_blockdim, dev_, false, gh);
-    } while (repeat_kernel);
-    Log(debug, "Zeros size: %d", zeros_size);
+    // Log(debug, "b4: %d", gh.nb4);
+    // do
+    // {
+    //   repeat_kernel = false;
+    //   uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
+    //   execKernel(step_2, gh.nb4, temp_blockdim, dev_, false, gh);
+    // } while (repeat_kernel);
+    // Log(debug, "Zeros size: %d", zeros_size);
 
-    while (1)
-    {
-      execKernel(step_3_init, nprob, n_threads, dev_, false, gh);
-      execKernel(step_3, nprob, n_threads, dev_, false, gh);
-      if (n_matches >= h_ncols)
-        break;
+    // while (1)
+    // {
+    //   execKernel(step_3_init, nprob, n_threads, dev_, false, gh);
+    //   execKernel(step_3, nprob, n_threads, dev_, false, gh);
+    //   if (n_matches >= h_ncols)
+    //     break;
 
-      execKernel(step_4_init, nprob, n_threads, dev_, false, gh);
+    //   execKernel(step_4_init, nprob, n_threads, dev_, false, gh);
 
-      while (1)
-      {
-        do
-        {
-          goto_5 = false;
-          repeat_kernel = false;
-          CUDA_RUNTIME(cudaDeviceSynchronize());
+    //   while (1)
+    //   {
+    //     do
+    //     {
+    //       goto_5 = false;
+    //       repeat_kernel = false;
+    //       CUDA_RUNTIME(cudaDeviceSynchronize());
 
-          uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
-          execKernel(step_4, gh.nb4, temp_blockdim, dev_, false, gh);
-        } while (repeat_kernel && !goto_5);
+    //       uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
+    //       execKernel(step_4, gh.nb4, temp_blockdim, dev_, false, gh);
+    //     } while (repeat_kernel && !goto_5);
 
-        if (goto_5)
-          break;
+    //     if (goto_5)
+    //       break;
 
-        // step 6
-        // printDebugArray(gh.cover_column, size_, "Column cover");
-        // printDebugArray(gh.cover_row, size_, "Row cover");
-        execKernel((min_reduce_kernel1<data, n_threads_reduction>),
-                   nprob, n_threads_reduction, dev_, false,
-                   gh.slack, gh.d_min_in_mat, h_nrows * h_ncols, gh);
+    //     // step 6
+    //     // printDebugArray(gh.cover_column, size_, "Column cover");
+    //     // printDebugArray(gh.cover_row, size_, "Row cover");
+    //     execKernel((min_reduce_kernel1<data, n_threads_reduction>),
+    //                nprob, n_threads_reduction, dev_, false,
+    //                gh.slack, gh.d_min_in_mat, h_nrows * h_ncols, gh);
 
-        // printDebugArray(gh.d_min_in_mat_vect, num_blocks_reduction, "min vector");
-        // printDebugArray(gh.cover_column, size_, "Column cover");
-        // printDebugArray(gh.cover_row, size_, "Row cover");
+    //     // printDebugArray(gh.d_min_in_mat_vect, num_blocks_reduction, "min vector");
+    //     // printDebugArray(gh.cover_column, size_, "Column cover");
+    //     // printDebugArray(gh.cover_row, size_, "Row cover");
 
-        if (!passes_sanity_test(gh.d_min_in_mat))
-          exit(-1);
+    //     if (!passes_sanity_test(gh.d_min_in_mat))
+    //       exit(-1);
 
-        execKernel(step_6_init, nprob, n_threads, dev_, false, gh);
-        execKernel(step_6_add_sub_fused_compress_matrix, nprob, n_threads_full, dev_, false, gh);
+    //     execKernel(step_6_init, nprob, n_threads, dev_, false, gh);
+    //     execKernel(step_6_add_sub_fused_compress_matrix, nprob, n_threads_full, dev_, false, gh);
 
-        // printDebugArray(gh.zeros_size_b, num_blocks_4);
-      } // repeat step 4 and 6
+    //     // printDebugArray(gh.zeros_size_b, num_blocks_4);
+    //   } // repeat step 4 and 6
 
-      execKernel(step_5a, nprob, n_threads, dev_, false, gh);
-      execKernel(step_5b, nprob, n_threads, dev_, false, gh);
-    } // repeat steps 3 to 6
+    //   execKernel(step_5a, nprob, n_threads, dev_, false, gh);
+    //   execKernel(step_5b, nprob, n_threads, dev_, false, gh);
+    // } // repeat steps 3 to 6
 
     // CUDA_RUNTIME(cudaFree(d_temp_storage));
 
