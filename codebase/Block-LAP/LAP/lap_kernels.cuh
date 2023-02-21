@@ -683,7 +683,7 @@ fundef void BHA(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh, const uint problemID
         return;
       }
       __syncthreads();
-      step_6_init(gh, sh);
+      step_6_init(gh, sh); // Also does dual update
       __syncthreads();
       // printArray(gh.d_min_in_mat, 1, "min ");
       // printArray(gh.min_in_rows, SIZE, "row dual");
