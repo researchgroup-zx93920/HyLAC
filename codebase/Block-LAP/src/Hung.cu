@@ -28,14 +28,14 @@ int main(int argc, char **argv)
 
   // typedef int data;
   // typedef double data;
-  typedef double data;
+  typedef float data;
   double time;
   Timer t;
   data *tcosts = new data[nprob * user_n * user_n];
   data *h_costs;
   for (int prob = 0; prob < nprob; prob++)
   {
-    data *costs = generate_cost<data>(config, seed + prob);
+    data *costs = generate_cost<data>(config, seed + user_n * prob);
     memcpy(&tcosts[prob * user_n * user_n], costs, user_n * user_n * sizeof(data));
     if (prob == 0)
       h_costs = costs;

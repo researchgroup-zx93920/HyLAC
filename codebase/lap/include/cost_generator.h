@@ -28,7 +28,7 @@ T *generate_cost(size_t user_n, double frac, const int seed = 45345)
     {
       default_random_engine generator(seed + r);
       generator.discard(1);
-      uniform_int_distribution<int> distribution(0, range - 1);
+      uniform_real_distribution<double> distribution(0, range - 1);
       for (size_t c = 0; c < ncols; c++)
       {
         if (c < user_n && r < user_n)

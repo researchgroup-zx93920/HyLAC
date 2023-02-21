@@ -53,7 +53,7 @@ fundef void calc_col_min(GLOBAL_HANDLE<data> &gh) // with single block
     thread_min = BR(temp_storage).Reduce(thread_min, cub::Min());
     if (threadIdx.x == 0)
     {
-      gh.min_in_rows[col] = thread_min;
+      gh.min_in_cols[col] = thread_min;
     }
     __syncthreads();
   }
@@ -65,7 +65,7 @@ fundef void col_sub(GLOBAL_HANDLE<data> &gh) // with single block
   for (size_t i = threadIdx.x; i < SIZE * SIZE; i += blockDim.x)
   {
     size_t l = i % SIZE;
-    gh.slack[i] = gh.slack[i] - gh.min_in_rows[l]; // subtract the minimum in row from that row
+    gh.slack[i] = gh.slack[i] - gh.min_in_cols[l]; // subtract the minimum in col from that col
   }
 }
 
@@ -86,7 +86,7 @@ fundef void calc_row_min(GLOBAL_HANDLE<data> &gh) // with single block
     thread_min = BR(temp_storage).Reduce(thread_min, cub::Min());
     if (threadIdx.x == 0)
     {
-      gh.min_in_cols[row] = thread_min;
+      gh.min_in_rows[row] = thread_min;
     }
     __syncthreads();
   }
@@ -97,7 +97,7 @@ fundef void row_sub(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh) // with single b
   for (size_t i = threadIdx.x; i < SIZE * SIZE; i += blockDim.x)
   {
     size_t c = i / SIZE;
-    gh.slack[i] = gh.slack[i] - gh.min_in_cols[c]; // subtract the minimum in row from that row
+    gh.slack[i] = gh.slack[i] - gh.min_in_rows[c]; // subtract the minimum in row from that row
     if (i == 0)
       sh.zeros_size = 0;
   }
@@ -320,6 +320,18 @@ fundef void step_6_init(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh)
   // size_t id = (size_t)threadIdx.x + (size_t)blockIdx.x * (size_t)blockDim.x;
   if (threadIdx.x == 0)
     sh.zeros_size = 0;
+  for (uint i = threadIdx.x; i < SIZE; i += blockDim.x)
+  {
+    if (gh.cover_column[i] == 0)
+      gh.min_in_rows[i] += gh.d_min_in_mat[0] / 2;
+    else
+      gh.min_in_rows[i] -= gh.d_min_in_mat[0] / 2;
+    if (gh.cover_row[i] == 0)
+      gh.min_in_cols[i] += gh.d_min_in_mat[0] / 2;
+    else
+      gh.min_in_cols[i] -= gh.d_min_in_mat[0] / 2;
+  }
+  __syncthreads();
 }
 
 /* STEP 5:
@@ -434,7 +446,7 @@ fundef void printArray(data *idata, size_t len = SIZE, const char *message = NUL
       printf("%s: ", message);
     for (uint i = 0; i < len; i++)
     {
-      printf("%d, ", idata[i]);
+      printf("%f, ", (float)idata[i]);
     }
     printf("\n");
   }
@@ -587,22 +599,24 @@ fundef void BHA(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh, const uint problemID
 {
 
   init(gh);
+  calc_row_min(gh);
+  __syncthreads();
+  row_sub(gh, sh);
+  __syncthreads();
   calc_col_min(gh);
   __syncthreads();
   col_sub(gh);
   __syncthreads();
   // checkpoint();
-  calc_row_min(gh);
-  __syncthreads();
-  row_sub(gh, sh);
-  __syncthreads();
-  // printMatrix(gh.slack);
+
+  // printArray(gh.min_in_rows, SIZE, "rowmin");
+  // printArray(gh.min_in_cols, SIZE, "colmin");
   compress_matrix(gh, sh);
   __syncthreads();
 
   // printArray(gh.cover_row, "cover row");
   // printArray(gh.cover_column, "cover column");
-  printArray(&sh.zeros_size, 1, "zeros size");
+
   do
   {
     __syncthreads();
@@ -632,7 +646,7 @@ fundef void BHA(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh, const uint problemID
     __syncthreads();
 
     // checkpoint();
-    printArray(&sh.zeros_size, 1, "zeros size:");
+
     while (1)
     {
       do
@@ -653,21 +667,26 @@ fundef void BHA(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh, const uint problemID
         break;
       // checkpoint();
       // printArray(&sh.zeros_size, 1, "zeros size:");
-
+      // printArray(gh.cover_row, SIZE, "row cover");
       __syncthreads();
-
       min_reduce_kernel1<data, n_threads_reduction>(gh.slack, gh.d_min_in_mat, SIZE * SIZE, gh);
       __syncthreads();
       if (gh.d_min_in_mat[0] <= 0)
       {
         __syncthreads();
         if (threadIdx.x == 0)
-          printf("minimum element in problemID %u is non positive: %f\n", problemID, gh.d_min_in_mat[0]);
+        {
+
+          printf("minimum element in problemID %u is non positive: %f\n", problemID, (float)gh.d_min_in_mat[0]);
+          // printf("minimum element in problemID %u is non positive: %f\n", problemID, gh.d_min_in_mat[0]);
+        }
         return;
       }
       __syncthreads();
       step_6_init(gh, sh);
       __syncthreads();
+      // printArray(gh.d_min_in_mat, 1, "min ");
+      // printArray(gh.min_in_rows, SIZE, "row dual");
       step_6_add_sub_fused_compress_matrix(gh, sh);
       __syncthreads();
     }
@@ -697,6 +716,8 @@ __global__ void THA(TILED_HANDLE<data> th)
 
     BHA<data>(gh, sh, problemID);
     __syncthreads();
+    // printArray(gh.min_in_rows, SIZE, "row duals");
+    // printArray(gh.min_in_cols, SIZE, "col duals");
     // if (threadIdx.x == 0)
     //   printf("Problem ID: %u done\n", problemID);
   }

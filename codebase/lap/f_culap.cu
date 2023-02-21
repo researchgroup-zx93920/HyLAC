@@ -134,7 +134,7 @@ void compactEdgesCSR(CompactEdges &d_edges_csr_dev, Matrix &d_costs_dev, Vertice
 	cudaSafeCall(cudaGetLastError(), "Error in kernel_edgePredicateConstructionCSR execution f_culap::compactEdgesCSR");
 
 	thrust::device_ptr<long> ptr(d_edge_predicates_csr.addresses);
-	M = thrust::reduce(ptr, ptr + d_edge_predicates_csr.size);			// calculate total number of edges.
+	M = thrust::reduce(ptr, ptr + d_edge_predicates_csr.size);					// calculate total number of edges.
 	thrust::exclusive_scan(ptr, ptr + d_edge_predicates_csr.size, ptr); // exclusive scan for calculating the scatter addresses.
 
 	cudaSafeCall(cudaMalloc((void **)(&d_edges_csr_dev.neighbors), M * sizeof(int)), "Error in cudaMalloc f_culap::compactEdgesCSR::d_edges_csr.neighbors");
@@ -205,7 +205,7 @@ void compactRowVertices(VertexData &d_row_data_dev, Array &d_vertices_csr_out, A
 
 	thrust::device_ptr<long> ptr(d_vertex_predicates.addresses);
 	d_vertices_csr_out.size = thrust::reduce(ptr, ptr + d_vertex_predicates.size); // calculate total number of vertices.
-	thrust::exclusive_scan(ptr, ptr + d_vertex_predicates.size, ptr);			   // exclusive scan for calculating the scatter addresses.
+	thrust::exclusive_scan(ptr, ptr + d_vertex_predicates.size, ptr);							 // exclusive scan for calculating the scatter addresses.
 
 	if (d_vertices_csr_out.size > 0)
 	{
@@ -248,7 +248,7 @@ void coverZeroAndExpand(CompactEdges &d_edges_csr_dev, Vertices &d_vertices_dev,
 
 	thrust::device_ptr<long> ptr(d_vertex_allocations.addresses);
 	d_vertices_csr_out.size = thrust::reduce(ptr, ptr + d_vertex_allocations.size); // calculate total number of vertices.
-	thrust::exclusive_scan(ptr, ptr + d_vertex_allocations.size, ptr);				// exclusive scan for calculating the scatter addresses.
+	thrust::exclusive_scan(ptr, ptr + d_vertex_allocations.size, ptr);							// exclusive scan for calculating the scatter addresses.
 
 	if (d_vertices_csr_out.size > 0)
 	{
@@ -301,7 +301,7 @@ void reversePass(VertexData &d_row_data_dev, VertexData &d_col_data_dev, int SP,
 
 	thrust::device_ptr<long> ptr(d_col_predicates.addresses);
 	d_col_ids_csr.size = thrust::reduce(ptr, ptr + d_col_predicates.size); // calculate total number of vertices.
-	thrust::exclusive_scan(ptr, ptr + d_col_predicates.size, ptr);		   // exclusive scan for calculating the scatter addresses.
+	thrust::exclusive_scan(ptr, ptr + d_col_predicates.size, ptr);				 // exclusive scan for calculating the scatter addresses.
 
 	if (d_col_ids_csr.size > 0)
 	{
@@ -351,7 +351,7 @@ void augmentationPass(Vertices &d_vertices_dev, VertexData &d_row_data_dev, Vert
 
 	thrust::device_ptr<long> ptr(d_row_predicates.addresses);
 	d_row_ids_csr.size = thrust::reduce(ptr, ptr + d_row_predicates.size); // calculate total number of vertices.
-	thrust::exclusive_scan(ptr, ptr + d_row_predicates.size, ptr);		   // exclusive scan for calculating the scatter addresses.
+	thrust::exclusive_scan(ptr, ptr + d_row_predicates.size, ptr);				 // exclusive scan for calculating the scatter addresses.
 
 	if (d_row_ids_csr.size > 0)
 	{

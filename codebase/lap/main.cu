@@ -2,7 +2,7 @@
 
 int main(int argc, char **argv)
 {
-    const int seed = 45345;
+    const int seed = 1400;
     int N = atoi(argv[1]);
     double range = strtod(argv[2], nullptr);
     const int n_tests = 1;
@@ -15,13 +15,10 @@ int main(int argc, char **argv)
     range *= N;
     printf("range: %f\n", range);
 
-    default_random_engine generator(seed);
-    uniform_int_distribution<int> distribution(0, range - 1);
-    // uniform_real_distribution<double> distribution(0, range - 1);
     long long total_time = 0;
     for (int test = 0; test < n_tests; test++)
     {
-        double *C = generate_cost<double>(N, range / N);
+        double *C = generate_cost<double>(N, range / N, seed);
 
         cudaSafeCall(cudaGetDevice(&devid), "cuda device unavailable!", __LINE__, __FILE__);
         // printHostMatrix(C, N, N, "LAP costs as read");
