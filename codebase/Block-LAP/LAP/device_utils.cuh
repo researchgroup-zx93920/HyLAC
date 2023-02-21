@@ -52,6 +52,7 @@ struct TILED_HANDLE
     CUDA_RUNTIME(cudaFree(max_in_mat_col));
     CUDA_RUNTIME(cudaFree(d_min_in_mat_vect));
     CUDA_RUNTIME(cudaFree(d_min_in_mat));
+    CUDA_RUNTIME(cudaFree(tail));
   };
 };
 

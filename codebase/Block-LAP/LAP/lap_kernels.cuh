@@ -414,7 +414,7 @@ fundef void step_6_add_sub_fused_compress_matrix(GLOBAL_HANDLE<data> &gh, SHARED
     }
 
     // compress matrix
-    if (near_zero(gh.slack[i]))
+    if (near_zero(reg))
     {
       // size_t b = i >> log2_data_block_size;
       size_t i0 = i & ~((size_t)data_block_size - 1); // == b << log2_data_block_size
