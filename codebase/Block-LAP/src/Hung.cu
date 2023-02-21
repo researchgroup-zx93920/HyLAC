@@ -26,9 +26,9 @@ int main(int argc, char **argv)
     exit(-1);
   }
 
-  typedef int data;
+  // typedef int data;
   // typedef double data;
-  // typedef float data;
+  typedef double data;
   double time;
   Timer t;
   data *tcosts = new data[nprob * user_n * user_n];

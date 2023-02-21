@@ -658,32 +658,11 @@ fundef void BHA(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh, const uint problemID
 
       min_reduce_kernel1<data, n_threads_reduction>(gh.slack, gh.d_min_in_mat, SIZE * SIZE, gh);
       __syncthreads();
-      // if (sh.zeros_size >= 1033)
-      // {
-      //   if (threadIdx.x == 0)
-      //   {
-      //     for (uint i = 0; i < SIZE; i++)
-      //     {
-      //       if (gh.cover_column[i] == 1)
-      //         printf("%u, ", i);
-      //     }
-      //     printf("\n");
-      //     for (uint i = 0; i < SIZE; i++)
-      //     {
-      //       if (gh.cover_row[i] == 0)
-      //         printf("%u, ", i);
-      //     }
-      //     printf("\n");
-      //   }
-      //   // return;
-      // }
-      // __syncthreads();
-      // printArray(gh.d_min_in_mat, 1, "min in matrix");
       if (gh.d_min_in_mat[0] <= 0)
       {
         __syncthreads();
         if (threadIdx.x == 0)
-          printf("minimum element in problemID %u is non positive: %d\n", problemID, gh.d_min_in_mat[0]);
+          printf("minimum element in problemID %u is non positive: %f\n", problemID, gh.d_min_in_mat[0]);
         return;
       }
       __syncthreads();
@@ -716,7 +695,7 @@ __global__ void THA(TILED_HANDLE<data> th)
       return;
     __syncthreads();
 
-    BHA(gh, sh, problemID);
+    BHA<data>(gh, sh, problemID);
     __syncthreads();
     // if (threadIdx.x == 0)
     //   printf("Problem ID: %u done\n", problemID);

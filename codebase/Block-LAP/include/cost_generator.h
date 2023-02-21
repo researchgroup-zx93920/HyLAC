@@ -34,12 +34,18 @@ T *generate_cost(Config config, const int seed = 45345)
     {
       default_random_engine generator(seed + r);
       generator.discard(1);
-      uniform_int_distribution<int> distribution(0, range - 1);
+
+      uniform_int_distribution<int> idistribution(0, range - 1);
+      uniform_real_distribution<T> rdistribution(0, range - 1);
       for (size_t c = 0; c < ncols; c++)
       {
         if (c < user_n && r < user_n)
         {
-          double gen = distribution(generator);
+          double gen;
+          if (typeid(T) == typeid(int))
+            gen = idistribution(generator);
+          else
+            gen = rdistribution(generator);
           cost[user_n * r + c] = gen;
         }
         else
