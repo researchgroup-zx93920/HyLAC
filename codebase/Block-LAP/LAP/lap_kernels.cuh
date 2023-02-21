@@ -4,7 +4,7 @@
 #include "cub/cub.cuh"
 
 #define fundef template <typename data = int> \
-__device__
+__device__ __forceinline__
 
 __constant__ size_t SIZE;
 __constant__ uint NPROB;
