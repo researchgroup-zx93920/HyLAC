@@ -4,6 +4,7 @@
 #include "lap_kernels.cuh"
 #include <thrust/reduce.h>
 #include <thrust/execution_policy.h>
+const uint nthr = 512;
 
 template <typename data>
 class BLAP
@@ -91,73 +92,7 @@ public:
     const uint n_threads_full = (uint)min(size_ * size_, 512UL);
     const size_t n_blocks = (size_t)ceil((size_ * 1.0) / n_threads);
 
-    execKernel(BHA<data>, nprob, n_threads, dev_, false, gh);
-    // execKernel(calc_col_min, nprob, n_threads_reduction, dev_, false, gh);
-    // execKernel(col_sub, nprob, n_threads, dev_, false, gh);
-
-    // execKernel(calc_row_min, nprob, n_threads_reduction, dev_, false, gh);
-    // execKernel(row_sub, nprob, n_threads, dev_, false, gh);
-    // execKernel(compress_matrix, nprob, n_threads, dev_, false, gh);
-
-    // use thrust instead of add reduction
-    // Log(debug, "b4: %d", gh.nb4);
-    // do
-    // {
-    //   repeat_kernel = false;
-    //   uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
-    //   execKernel(step_2, gh.nb4, temp_blockdim, dev_, false, gh);
-    // } while (repeat_kernel);
-    // Log(debug, "Zeros size: %d", zeros_size);
-
-    // while (1)
-    // {
-    //   execKernel(step_3_init, nprob, n_threads, dev_, false, gh);
-    //   execKernel(step_3, nprob, n_threads, dev_, false, gh);
-    //   if (n_matches >= h_ncols)
-    //     break;
-
-    //   execKernel(step_4_init, nprob, n_threads, dev_, false, gh);
-
-    //   while (1)
-    //   {
-    //     do
-    //     {
-    //       goto_5 = false;
-    //       repeat_kernel = false;
-    //       CUDA_RUNTIME(cudaDeviceSynchronize());
-
-    //       uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
-    //       execKernel(step_4, gh.nb4, temp_blockdim, dev_, false, gh);
-    //     } while (repeat_kernel && !goto_5);
-
-    //     if (goto_5)
-    //       break;
-
-    //     // step 6
-    //     // printDebugArray(gh.cover_column, size_, "Column cover");
-    //     // printDebugArray(gh.cover_row, size_, "Row cover");
-    //     execKernel((min_reduce_kernel1<data, n_threads_reduction>),
-    //                nprob, n_threads_reduction, dev_, false,
-    //                gh.slack, gh.d_min_in_mat, h_nrows * h_ncols, gh);
-
-    //     // printDebugArray(gh.d_min_in_mat_vect, num_blocks_reduction, "min vector");
-    //     // printDebugArray(gh.cover_column, size_, "Column cover");
-    //     // printDebugArray(gh.cover_row, size_, "Row cover");
-
-    //     if (!passes_sanity_test(gh.d_min_in_mat))
-    //       exit(-1);
-
-    //     execKernel(step_6_init, nprob, n_threads, dev_, false, gh);
-    //     execKernel(step_6_add_sub_fused_compress_matrix, nprob, n_threads_full, dev_, false, gh);
-
-    //     // printDebugArray(gh.zeros_size_b, num_blocks_4);
-    //   } // repeat step 4 and 6
-
-    //   execKernel(step_5a, nprob, n_threads, dev_, false, gh);
-    //   execKernel(step_5b, nprob, n_threads, dev_, false, gh);
-    // } // repeat steps 3 to 6
-
-    // CUDA_RUNTIME(cudaFree(d_temp_storage));
+    execKernel((BHA<data, n_threads>), nprob, n_threads, dev_, false, gh);
 
     // find objective
     double total_cost = 0;
@@ -183,5 +118,114 @@ public:
     }
     else
       return true;
+  }
+};
+
+template <typename data>
+class TLAP
+{
+private:
+  uint nprob_;
+  int dev_, maxtile;
+  size_t size_, h_nrows, h_ncols;
+  data *Tcost_;
+  uint num_blocks_4, num_blocks_reduction;
+
+public:
+  TILED_HANDLE<data> th;
+  TLAP(uint nproblem, data *tcost, size_t size, int dev = 0)
+      : nprob_(nproblem), Tcost_(tcost), dev_(dev), size_(size)
+  {
+    h_nrows = size;
+    h_ncols = size;
+    CUDA_RUNTIME(cudaSetDevice(dev_));
+    CUDA_RUNTIME(cudaMemcpyToSymbol(NPROB, &nprob_, sizeof(NPROB)));
+    CUDA_RUNTIME(cudaMemcpyToSymbol(SIZE, &size, sizeof(SIZE)));
+    CUDA_RUNTIME(cudaMemcpyToSymbol(nrows, &h_nrows, sizeof(SIZE)));
+    CUDA_RUNTIME(cudaMemcpyToSymbol(ncols, &h_ncols, sizeof(SIZE)));
+    num_blocks_4 = max((uint)ceil((size * 1.0) / columns_per_block_step_4), 1);
+    num_blocks_reduction = min(size, 512UL);
+    CUDA_RUNTIME(cudaMemcpyToSymbol(NB4, &num_blocks_4, sizeof(NB4)));
+    CUDA_RUNTIME(cudaMemcpyToSymbol(NBR, &num_blocks_reduction, sizeof(NBR)));
+    const uint temp1 = ceil(size / num_blocks_reduction);
+    CUDA_RUNTIME(cudaMemcpyToSymbol(n_rows_per_block, &temp1, sizeof(n_rows_per_block)));
+    CUDA_RUNTIME(cudaMemcpyToSymbol(n_cols_per_block, &temp1, sizeof(n_rows_per_block)));
+    const uint temp2 = (uint)ceil(log2(size_));
+    CUDA_RUNTIME(cudaMemcpyToSymbol(log2_n, &temp2, sizeof(log2_n)));
+
+    int max_active_blocks = 1;
+    CUDAContext context;
+    int num_SMs = context.num_SMs;
+
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&max_active_blocks,
+                                                  THA<data, nthr>,
+                                                  nthr, 0);
+    max_active_blocks *= num_SMs;
+    maxtile = min(nproblem, max_active_blocks);
+
+    th.row_mask = (1 << temp2) - 1;
+    Log(debug, "log2_n %d", temp2);
+    Log(debug, "row mask: %d", th.row_mask);
+    th.nb4 = max((uint)ceil((size * 1.0) / columns_per_block_step_4), 1);
+    CUDA_RUNTIME(cudaMemcpyToSymbol(n_blocks_step_4, &th.nb4, sizeof(n_blocks_step_4)));
+    const uint temp4 = columns_per_block_step_4 * pow(2, ceil(log2(size_)));
+    Log(debug, "dbs: %u", temp4);
+    CUDA_RUNTIME(cudaMemcpyToSymbol(data_block_size, &temp4, sizeof(data_block_size)));
+    const uint temp5 = temp2 + (uint)ceil(log2(columns_per_block_step_4));
+    Log(debug, "l2dbs: %u", temp5);
+    CUDA_RUNTIME(cudaMemcpyToSymbol(log2_data_block_size, &temp5, sizeof(log2_data_block_size)));
+
+    // external memory
+    CUDA_RUNTIME(cudaMalloc((void **)&th.slack, nproblem * size * size * sizeof(data)));
+    CUDA_RUNTIME(cudaMallocManaged((void **)&th.column_of_star_at_row, nproblem * h_nrows * sizeof(int)));
+
+    // internal memory
+    CUDA_RUNTIME(cudaMalloc((void **)&th.min_in_rows, maxtile * h_nrows * sizeof(data)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.min_in_cols, maxtile * h_ncols * sizeof(data)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.zeros, maxtile * h_nrows * h_ncols * sizeof(size_t)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.zeros_size_b, maxtile * num_blocks_4 * sizeof(size_t)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.row_of_star_at_column, maxtile * h_ncols * sizeof(int)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.cover_row, maxtile * h_nrows * sizeof(int)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.cover_column, maxtile * h_ncols * sizeof(int)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.column_of_prime_at_row, maxtile * h_nrows * sizeof(int)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.row_of_green_at_column, maxtile * h_ncols * sizeof(int)));
+
+    CUDA_RUNTIME(cudaMalloc((void **)&th.max_in_mat_row, maxtile * h_nrows * sizeof(data)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.max_in_mat_col, maxtile * h_ncols * sizeof(data)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.d_min_in_mat_vect, maxtile * num_blocks_reduction * sizeof(data)));
+    CUDA_RUNTIME(cudaMalloc((void **)&th.d_min_in_mat, maxtile * 1 * sizeof(data)));
+
+    CUDA_RUNTIME(cudaMalloc((void **)&th.tail, 1 * sizeof(uint)));
+    CUDA_RUNTIME(cudaMemset(th.tail, 0, sizeof(uint)));
+    // CUDA_RUNTIME(cudaDeviceSynchronize());
+    // initialize slack
+    CUDA_RUNTIME(cudaMemcpy(th.slack, tcost, nproblem * size * size * sizeof(data), cudaMemcpyDefault));
+    CUDA_RUNTIME(cudaDeviceSynchronize());
+  };
+  // destructor
+  ~TLAP()
+  {
+    th.clear();
+  }
+
+  void solve()
+  {
+    int nblocks = maxtile;
+    Log(debug, "nblocks: %d\n", nblocks);
+    execKernel((THA<data, nthr>), nblocks, nthr, dev_, true, th);
+    for (int prob = 0; prob < nprob_; prob++)
+    {
+      data *cost = &Tcost_[prob * size_ * size_];
+      // printDebugMatrix(cost, h_nrows, h_ncols, "cost");
+      double total_cost = 0;
+      for (int r = 0; r < h_nrows; r++)
+      {
+        int c = th.column_of_star_at_row[prob * size_ + r];
+        // cout << c << ", ";
+        if (c >= 0)
+          total_cost += cost[c * h_nrows + r];
+      }
+      printf("problem %d \t obj: %f\n", prob, total_cost);
+    }
   }
 };

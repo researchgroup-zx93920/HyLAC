@@ -56,11 +56,11 @@ public:
     CUDA_RUNTIME(cudaMalloc((void **)&gh.min_in_cols, h_ncols * sizeof(data)));
 
     CUDA_RUNTIME(cudaMalloc((void **)&gh.zeros, h_nrows * h_ncols * sizeof(size_t)));
-    CUDA_RUNTIME(cudaMalloc((void **)&gh.zeros_size_b, num_blocks_4 * sizeof(size_t)));
+    CUDA_RUNTIME(cudaMallocManaged((void **)&gh.zeros_size_b, num_blocks_4 * sizeof(size_t)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.row_of_star_at_column, h_ncols * sizeof(int)));
     CUDA_RUNTIME(cudaMallocManaged((void **)&gh.column_of_star_at_row, h_nrows * sizeof(int)));
-    CUDA_RUNTIME(cudaMalloc((void **)&gh.cover_row, h_nrows * sizeof(int)));
-    CUDA_RUNTIME(cudaMalloc((void **)&gh.cover_column, h_ncols * sizeof(int)));
+    CUDA_RUNTIME(cudaMallocManaged((void **)&gh.cover_row, h_nrows * sizeof(int)));
+    CUDA_RUNTIME(cudaMallocManaged((void **)&gh.cover_column, h_ncols * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.column_of_prime_at_row, h_nrows * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.row_of_green_at_column, h_ncols * sizeof(int)));
 
@@ -96,13 +96,16 @@ public:
 
     execKernel(calc_row_min, size_, n_threads_reduction, dev_, false, gh);
     execKernel(row_sub, n_blocks_full, n_threads_full, dev_, false, gh);
+    // printDebugMatrix(gh.slack, size_, size_, "post row and column sub");
     execKernel(compress_matrix, n_blocks_full, n_threads_full, dev_, false, gh);
-
+    // printDebugArray(gh.cover_row, size_, "Cover Rows");
+    // printDebugArray(gh.cover_column, size_, "Cover column");
     // use thrust instead of add reduction
     // execKernel((add_reduction), 1, (uint)ceil(max(size_ / columns_per_block_step_4, 1)), dev_, false, gh);
     zeros_size = thrust::reduce(thrust::device, gh.zeros_size_b, gh.zeros_size_b + num_blocks_4);
     Log(debug, "b4: %d", gh.nb4);
-    // printDebugArray(gh.zeros_size_b, gh.nb4, "zeros size");
+    printDebugArray(gh.zeros_size_b, gh.nb4, "zeros size");
+
     do
     {
       repeat_kernel = false;
@@ -110,7 +113,8 @@ public:
       execKernel(step_2, gh.nb4, temp_blockdim, dev_, false, gh);
     } while (repeat_kernel);
     Log(debug, "Zeros size: %d", zeros_size);
-
+    // printDebugArray(gh.row_of_star_at_column, size_, "Row of star at column");
+    // printDebugArray(gh.column_of_star_at_row, size_, "Column of star at row");
     // needed for cub reduce
     void *d_temp_storage = NULL;
     size_t temp_storage_bytes1 = 0, temp_storage_bytes2 = 0;
@@ -133,7 +137,7 @@ public:
 
       // printDebugArray(gh.cover_column, size_, "Cover column");
       // printDebugArray(gh.cover_row, size_, "Cover Rows");
-      // printDebugArray(gh.zeros_size_b, num_blocks_4, "zeros size per block");
+      printDebugArray(gh.zeros_size_b, num_blocks_4, "zeros size per block");
       // exit(-1);
       while (1)
       {
@@ -156,19 +160,33 @@ public:
         // step 6
 
         // printDebugArray(gh.cover_row, size_, "Row cover");
-        execKernel((min_reduce_kernel1<data, n_threads_reduction>),
-                   num_blocks_reduction, n_threads_reduction, dev_, false,
+        execKernel((min_reduce_kernel1<data, 512>),
+                   1, 512, dev_, false,
                    gh.slack, gh.d_min_in_mat_vect, h_nrows * h_ncols, gh);
 
-        // printDebugArray(gh.d_min_in_mat_vect, num_blocks_reduction, "min vector");
-        // printDebugArray(gh.cover_column, size_, "Column cover");
-        // printDebugArray(gh.cover_row, size_, "Row cover");
-        // exit(-1);
+        if (gh.zeros_size_b[0] >= 1033)
+        {
+          // printDebugArray(gh.cover_column, size_, "Column cover");
+          for (uint i = 0; i < size_; i++)
+          {
+            if (gh.cover_column[i] == 1)
+              printf("%u, ", i);
+          }
+          printf("\n");
+          for (uint i = 0; i < size_; i++)
+          {
+            if (gh.cover_row[i] == 0)
+              printf("%u, ", i);
+          }
+          printf("\n");
+          // exit(-1);
+        }
         // finding minimum with cub
         CUDA_RUNTIME(cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes1,
                                                gh.d_min_in_mat_vect, gh.d_min_in_mat,
-                                               num_blocks_reduction, cub::Min(), MAX_DATA));
+                                               1, cub::Min(), MAX_DATA));
 
+        printDebugArray(gh.d_min_in_mat, 1, "min in matrix");
         if (!passes_sanity_test(gh.d_min_in_mat))
           exit(-1);
 

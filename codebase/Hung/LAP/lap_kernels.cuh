@@ -17,7 +17,7 @@ __constant__ uint n_cols_per_block;
 __constant__ uint log2_n, log2_data_block_size, data_block_size;
 __constant__ uint n_blocks_step_4;
 
-const int max_threads_per_block = 1024;
+const int max_threads_per_block = 512;
 const int columns_per_block_step_4 = 512;
 const int n_threads_reduction = 256;
 
@@ -298,7 +298,7 @@ fundef step_4(GLOBAL_HANDLE<data> gh)
     goto_5 = true;
 }
 
-template <typename data = int, uint blockSize = n_threads_reduction>
+template <typename data = int, uint blockSize = 512>
 __global__ void min_reduce_kernel1(volatile data *g_idata, volatile data *g_odata,
                                    const size_t n, GLOBAL_HANDLE<data> gh)
 {

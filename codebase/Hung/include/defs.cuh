@@ -1,6 +1,7 @@
 #pragma once
 
 #define __DEBUG__
+// #define __DEBUG__D
 #define MAX_DATA INT_MAX
 #define epsilon 1e-6
 

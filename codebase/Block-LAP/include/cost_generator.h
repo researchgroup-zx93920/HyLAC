@@ -62,6 +62,7 @@ T *generate_cost(Config config, const int seed = 45345)
   //   }
   //   cout << endl;
   // }
+  // cout << endl;
 
   // ********* write cost array to csv file *********
   // ofstream out("matrix_test.csv");

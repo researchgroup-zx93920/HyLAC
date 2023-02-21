@@ -30,8 +30,6 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
     CUDA_RUNTIME(cudaSetDevice(deviceId));                                                    \
     if (verbose)                                                                              \
       Log(info, "Launching %s with nblocks: %u, blockDim: %u", #kernel, gridSize, blockSize); \
-    if (gridSize > 1)                                                                         \
-      Log(critical, "Large for %s!", #kernel);                                                \
     kernel<<<grid, block>>>(__VA_ARGS__);                                                     \
     CUDA_RUNTIME(cudaGetLastError());                                                         \
     CUDA_RUNTIME(cudaDeviceSynchronize());                                                    \

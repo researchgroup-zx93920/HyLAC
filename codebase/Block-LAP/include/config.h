@@ -6,6 +6,7 @@
 struct Config
 {
   uint user_n;
+  uint tile;
   double frac;
   int deviceId;
   int seed;
@@ -37,9 +38,10 @@ static Config parseArgs(int argc, char **argv)
   config.frac = 1.0;
   config.deviceId = 0;
   config.seed = 45345;
+  config.tile = 1;
 
   int opt;
-  while ((opt = getopt(argc, argv, "n:f:d:s:h:")) >= 0)
+  while ((opt = getopt(argc, argv, "n:f:d:s:t:h:")) >= 0)
   {
     switch (opt)
     {
@@ -54,6 +56,9 @@ static Config parseArgs(int argc, char **argv)
       break;
     case 's':
       config.seed = atoi(optarg);
+      break;
+    case 't':
+      config.tile = atoi(optarg);
       break;
     case 'h':
       usage();
