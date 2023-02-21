@@ -162,6 +162,7 @@ public:
                                                   nthr, 0);
     max_active_blocks *= num_SMs;
     maxtile = min(nproblem, max_active_blocks);
+    Log(debug, "Grid dimension %d\n", maxtile);
 
     th.row_mask = (1 << temp2) - 1;
     Log(debug, "log2_n %d", temp2);
@@ -212,7 +213,10 @@ public:
   {
     int nblocks = maxtile;
     Log(debug, "nblocks: %d\n", nblocks);
+    Timer t;
     execKernel((THA<data, nthr>), nblocks, nthr, dev_, true, th);
+    auto time = t.elapsed();
+    Log(info, "kernel time %f s\n", time);
     for (int prob = 0; prob < nprob_; prob++)
     {
       data *cost = &Tcost_[prob * size_ * size_];

@@ -466,12 +466,12 @@ fundef void set_handles(TILED_HANDLE<data> &th, GLOBAL_HANDLE<data> &gh, uint &p
 {
   if (threadIdx.x == 0)
   {
-    uint b = blockIdx.x;
+    size_t b = blockIdx.x;
     problemID = atomicAdd(th.tail, 1);
     // problemID = b;
     if (problemID < NPROB)
     {
-      gh.slack = &th.slack[problemID * SIZE * SIZE];
+      gh.slack = &th.slack[(size_t)problemID * SIZE * SIZE];
       gh.column_of_star_at_row = &th.column_of_star_at_row[problemID * nrows];
 
       gh.min_in_rows = &th.min_in_rows[b * nrows];
@@ -635,9 +635,9 @@ fundef void BHA(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh, const uint problemID
     printArray(&sh.zeros_size, 1, "zeros size:");
     while (1)
     {
-      __syncthreads();
       do
       {
+        __syncthreads();
         if (threadIdx.x == 0)
         {
           sh.goto_5 = false;
