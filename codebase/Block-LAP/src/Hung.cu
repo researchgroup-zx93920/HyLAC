@@ -47,6 +47,9 @@ int main(int argc, char **argv)
   Log(debug, "cost generation time %f s", time);
   t.reset();
   CUDA_RUNTIME(cudaSetDevice(dev));
+  data *d_tcosts;
+  CUDA_RUNTIME(cudaMalloc((void **)&d_tcosts, nprob * user_n * user_n * sizeof(data)));
+  CUDA_RUNTIME(cudaMemcpy(d_tcosts, tcosts, nprob * user_n * user_n * sizeof(data), cudaMemcpyDefault));
 
   /*BLAP<data> *lap = new BLAP<data>(h_costs, user_n, dev);
   time = t.elapsed();
@@ -58,7 +61,7 @@ int main(int argc, char **argv)
   delete lap;
   memstatus("post deletion");*/
 
-  TLAP<data> *tlap = new TLAP<data>((uint)nprob, tcosts, user_n, dev);
+  TLAP<data> *tlap = new TLAP<data>((uint)nprob, d_tcosts, user_n, dev);
   time = t.elapsed();
   Log(debug, "TLAP object generated succesfully in %f s", time);
   t.reset();

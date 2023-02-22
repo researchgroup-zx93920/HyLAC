@@ -464,7 +464,7 @@ fundef void printMatrix(data *idata)
     {
       for (uint j = 0; j < SIZE; j++)
       {
-        printf("%d, ", idata[SIZE * i + j]);
+        printf("%f, ", idata[SIZE * i + j]);
       }
       printf("\n");
     }
@@ -483,9 +483,14 @@ fundef void set_handles(TILED_HANDLE<data> &th, GLOBAL_HANDLE<data> &gh, uint &p
     // problemID = b;
     if (problemID < NPROB)
     {
+      // External memory
+      gh.cost = &th.cost[(size_t)problemID * SIZE * SIZE];
       gh.slack = &th.slack[(size_t)problemID * SIZE * SIZE];
       gh.column_of_star_at_row = &th.column_of_star_at_row[problemID * nrows];
+      gh.objective = &th.objective[problemID * 1];
+      gh.objective[0] = 0;
 
+      // Internal memory
       gh.min_in_rows = &th.min_in_rows[b * nrows];
       gh.min_in_cols = &th.min_in_cols[b * ncols];
       gh.zeros = &th.zeros[b * nrows * ncols];
@@ -699,6 +704,21 @@ fundef void BHA(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh, const uint problemID
   }
 }
 
+fundef void get_objective(GLOBAL_HANDLE<data> &gh)
+{
+  typedef cub::BlockReduce<data, n_threads_reduction> BR;
+  __shared__ typename BR::TempStorage temp_storage;
+  data obj = 0;
+  for (uint c = threadIdx.x; c < SIZE; c += blockDim.x)
+  {
+    obj += gh.cost[c * SIZE + gh.row_of_star_at_column[c]];
+  }
+  obj = BR(temp_storage).Reduce(obj, cub::Sum());
+  if (threadIdx.x == 0)
+    gh.objective[0] = obj;
+  __syncthreads();
+}
+
 template <typename data, uint BLOCK_DIM_X>
 __global__ void THA(TILED_HANDLE<data> th)
 {
@@ -716,9 +736,12 @@ __global__ void THA(TILED_HANDLE<data> th)
 
     BHA<data>(gh, sh, problemID);
     __syncthreads();
+
+    get_objective<data>(gh);
+
     // printArray(gh.min_in_rows, SIZE, "row duals");
     // printArray(gh.min_in_cols, SIZE, "col duals");
-    // if (threadIdx.x == 0)
-    //   printf("Problem ID: %u done\n", problemID);
+    if (threadIdx.x == 0)
+      printf("Problem %u: %f done\n", problemID, gh.objective[0]);
   }
 }

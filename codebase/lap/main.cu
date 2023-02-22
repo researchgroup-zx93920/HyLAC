@@ -43,8 +43,9 @@ int main(int argc, char **argv)
         auto elapsed = clock::now() - start;
 
         printDebugArray(d_obj, 1, "Total cost:");
-        printDebugArray(d_row_duals, N, "Row duals:");
-        printDebugArray(d_col_duals, N, "Col duals:");
+        // printDebugArray(d_row_duals, N, "Row duals:");
+        // printDebugArray(d_col_duals, N, "Col duals:");
+        // printDebugArray(d_row_assignments, N, "Row assignments:");
         long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
         total_time += microseconds / n_tests;
 

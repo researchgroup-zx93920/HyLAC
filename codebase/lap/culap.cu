@@ -179,7 +179,7 @@ int CuLAP::hungarianStep0(bool count_time)
 		steptimes[0] += (end - start);
 
 	prevstep = 0;
-	printDebugArray(d_vertices_dev.row_duals, N, "Row dual initial");
+	// printDebugArray(d_vertices_dev.row_duals, N, "Row dual initial");
 	// printDebugArray(d_vertices_dev.col_duals, N, "Col dual initial");
 	return next;
 }
@@ -339,10 +339,10 @@ int CuLAP::hungarianStep5(bool count_time)
 		steptimes[7] += (end - start);
 
 	prevstep = 5;
-	printDebugArray(d_vertices_dev.row_covers, N, "row covers");
-	printDebugArray(d_vertices_dev.col_covers, N, "col covers");
-	printDebugArray(d_sp_min, 1, "min: ");
-	printDebugArray(d_vertices_dev.row_duals, N, "row duals");
+	// printDebugArray(d_vertices_dev.row_covers, N, "row covers");
+	// printDebugArray(d_vertices_dev.col_covers, N, "col covers");
+	// printDebugArray(d_sp_min, 1, "min: ");
+	// printDebugArray(d_vertices_dev.row_duals, N, "row duals");
 	cudaSafeCall(cudaFree(d_sp_min), "Error in cudaFree CuLAP::hungarianStep5::d_sp_min");
 	// printDebugArray(d_vertices_dev.col_duals, N, "col duals");
 	return 3;
