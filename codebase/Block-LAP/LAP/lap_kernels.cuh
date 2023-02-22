@@ -490,12 +490,23 @@ fundef void set_handles(TILED_HANDLE<data> &th, GLOBAL_HANDLE<data> &gh, uint &p
       gh.objective = &th.objective[problemID * 1];
       gh.objective[0] = 0;
 
+      if (th.memoryloc == INTERNAL)
+      {
+        gh.min_in_rows = &th.min_in_rows[b * nrows];
+        gh.min_in_cols = &th.min_in_cols[b * ncols];
+        gh.row_of_star_at_column = &th.row_of_star_at_column[b * ncols];
+      }
+      else if (th.memoryloc == EXTERNAL)
+      {
+        gh.min_in_rows = &th.min_in_rows[problemID * nrows];
+        gh.min_in_cols = &th.min_in_cols[problemID * ncols];
+        gh.row_of_star_at_column = &th.row_of_star_at_column[problemID * ncols];
+      }
       // Internal memory
-      gh.min_in_rows = &th.min_in_rows[b * nrows];
-      gh.min_in_cols = &th.min_in_cols[b * ncols];
+
       gh.zeros = &th.zeros[b * nrows * ncols];
       gh.zeros_size_b = &th.zeros_size_b[b * NB4];
-      gh.row_of_star_at_column = &th.row_of_star_at_column[b * ncols];
+
       gh.cover_row = &th.cover_row[b * nrows];
       gh.cover_column = &th.cover_column[b * ncols];
       gh.column_of_prime_at_row = &th.column_of_prime_at_row[b * nrows];
@@ -730,18 +741,21 @@ __global__ void THA(TILED_HANDLE<data> th)
   {
     set_handles(th, gh, problemID);
     __syncthreads();
+    checkpoint();
     if (problemID >= NPROB)
       return;
     __syncthreads();
-
+    checkpoint();
     BHA<data>(gh, sh, problemID);
     __syncthreads();
-
+    checkpoint();
+    printArray(gh.row_of_star_at_column, SIZE, "assignments");
     get_objective<data>(gh);
-
-    // printArray(gh.min_in_rows, SIZE, "row duals");
-    // printArray(gh.min_in_cols, SIZE, "col duals");
+    checkpoint();
+    printArray(gh.min_in_rows, SIZE, "row duals");
+    printArray(gh.min_in_cols, SIZE, "col duals");
     if (threadIdx.x == 0)
-      printf("Problem %u: %f done\n", problemID, gh.objective[0]);
+      printf("Problem %u: %d done\n", problemID, gh.objective[0]);
   }
+  return;
 }

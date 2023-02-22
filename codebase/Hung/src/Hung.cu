@@ -20,9 +20,9 @@ int main(int argc, char **argv)
   int user_n = config.user_n;
   int dev = config.deviceId;
 
-  typedef int data;
+  // typedef int data;
   // typedef double data;
-  // typedef float data;
+  typedef float data;
   double time;
   Timer t;
 
