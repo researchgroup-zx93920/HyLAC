@@ -26,16 +26,16 @@ int main(int argc, char **argv)
     exit(-1);
   }
 
-  typedef int data;
+  // typedef unsigned long data;
   // typedef double data;
-  // typedef float data;
+  typedef float data;
   double time;
   Timer t;
   data *tcosts = new data[nprob * user_n * user_n];
   data *h_costs;
   for (int prob = 0; prob < nprob; prob++)
   {
-    data *costs = generate_cost<data>(config, seed + user_n * prob);
+    data *costs = generate_cost<data>(config, seed + prob);
     memcpy(&tcosts[prob * user_n * user_n], costs, user_n * user_n * sizeof(data));
     if (prob == 0)
       h_costs = costs;
@@ -59,9 +59,8 @@ int main(int argc, char **argv)
   time = t.elapsed();
   Log(critical, "solve time %f s\n\n", time);
   delete lap;
-  memstatus("post deletion");*/
-
-  /*TLAP<data> *tlap = new TLAP<data>((uint)nprob, d_tcosts, user_n, dev);
+  memstatus("post deletion");
+  TLAP<data> *tlap = new TLAP<data>((uint)nprob, d_tcosts, user_n, dev);
   time = t.elapsed();
   Log(debug, "TLAP object generated succesfully in %f s", time);
   t.reset();
@@ -82,10 +81,10 @@ int main(int argc, char **argv)
   TLAP<data> *tlap1 = new TLAP<data>(nprob, user_n, dev);
   tlap1->solve(d_tcosts, Drow_ass, Drow_duals, Dcol_duals, Dobj);
 
-  printDebugMatrix<data>(d_tcosts, user_n, user_n, "cost matrix");
-  printDebugArray<data>(Drow_duals, user_n, "row duals");
-  printDebugArray<data>(Dcol_duals, user_n, "col duals");
-  printDebugArray<data>(Dobj, nprob, "objectives");
+  // printDebugMatrix<data>(d_tcosts, user_n, user_n, "cost matrix");
+  // printDebugArray<data>(Drow_duals, user_n, "row duals");
+  // printDebugArray<data>(Dcol_duals, user_n, "col duals");
+  // printDebugArray<data>(Dobj, nprob, "objectives");
   CUDA_RUNTIME(cudaFree(d_tcosts));
   CUDA_RUNTIME(cudaFree(Drow_ass));
   CUDA_RUNTIME(cudaFree(Drow_duals));

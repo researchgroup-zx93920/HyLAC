@@ -741,21 +741,15 @@ __global__ void THA(TILED_HANDLE<data> th)
   {
     set_handles(th, gh, problemID);
     __syncthreads();
-    checkpoint();
     if (problemID >= NPROB)
       return;
     __syncthreads();
-    checkpoint();
     BHA<data>(gh, sh, problemID);
     __syncthreads();
-    checkpoint();
-    printArray(gh.row_of_star_at_column, SIZE, "assignments");
     get_objective<data>(gh);
-    checkpoint();
-    printArray(gh.min_in_rows, SIZE, "row duals");
-    printArray(gh.min_in_cols, SIZE, "col duals");
-    if (threadIdx.x == 0)
-      printf("Problem %u: %d done\n", problemID, gh.objective[0]);
+
+    // if (threadIdx.x == 0)
+    //   printf("Problem %u: %d done\n", problemID, gh.objective[0]);
   }
   return;
 }
