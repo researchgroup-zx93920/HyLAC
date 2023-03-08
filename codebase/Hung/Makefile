@@ -15,7 +15,7 @@ EXES := $(SRCS:%=$(BUILD_DIR)/exe/%.exe)
 DEBUG_OBJS := $(SRCS:%=$(BUILD_DIR)/debug_objs/%.o)
 DEBUG_EXES := $(SRCS:%=$(BUILD_DIR)/debug_exes/%.exe)
 DEPS := $(OBJS:.o=.d)
-ARCH := $(shell ./get_SM.sh)
+ARCH := $(shell ~/get_SM.sh)
 
 
 INCL_DIRS := #./include $(FREESTAND_DIR)/include 
@@ -23,8 +23,10 @@ INC_FLAGS := $(addprefix -I,$(INCL_DIRS))
 
 LDFLAGS := -lcuda -lgomp
 CPPFLAGS ?= $(INC_FLAGS) -std=c++11 -O3
-CUDAFLAGS ?= $(INC_FLAGS) -g -Xcompiler -fopenmp -lineinfo -O3 -arch=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=compute_$(ARCH)
-CUDADEBUGFLAGS ?= $(INC_FLAGS) -g -G -Xcompiler -fopenmp -O3 -arch=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=compute_$(ARCH)
+CUDAFLAGS ?= $(INC_FLAGS) -g -Xcompiler -fopenmp -lineinfo -O3 -arch=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=sm_$(ARCH) \
+						-gencode=arch=compute_$(ARCH),code=compute_$(ARCH)
+CUDADEBUGFLAGS ?= $(INC_FLAGS) -g -G -Xcompiler -fopenmp -O3 -arch=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=sm_$(ARCH) 
+						-gencode=arch=compute_$(ARCH),code=compute_$(ARCH)
 
 NVCCOPTIONS ?=
 

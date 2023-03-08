@@ -176,6 +176,25 @@ private:
     CUDA_RUNTIME(cudaDeviceSynchronize());
     execKernel(step3, gridDim, BLOCK_DIMX, devID, true, row_ass, col_cover);
   }
+  void S6() // Classical step 6
+  {
+    execKernel((min_reduce_kernel1<data, BLOCK_DIMX>),
+               nbr, BLOCK_DIMX, devID, false,
+               slack, min_vect, row_cover, col_cover);
+
+    // finding minimum with cub
+    CUDA_RUNTIME(cub::DeviceReduce::Reduce(cub_storage, b1, min_vect, min_mat,
+                                           nbr, cub::Min(), MAX_DATA));
+
+    zeros_size = 0;
+    CUDA_RUNTIME(cudaMemset(zeros_size_b, 0, nb4));
+    uint gridDim = (uint)ceil(psize2 * 1.0 / BLOCK_DIMX);
+    execKernel(S6_update, gridDim, BLOCK_DIMX, devID, true,
+               slack, row_cover, col_cover, min_mat, zeros, zeros_size_b);
+    CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b2, zeros_size_b,
+                                        &zeros_size, nb4));
+  }
+
   void S456_classical() // Classical Version
   {
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX);
@@ -203,23 +222,5 @@ private:
                col_prime, row_green, row_ass, col_ass);
     execKernel(S5b, gridDim, BLOCK_DIMX, devID, true,
                row_green, row_ass, col_ass);
-  }
-  void S6() // Classical step 6
-  {
-    execKernel((min_reduce_kernel1<data, BLOCK_DIMX>),
-               nbr, BLOCK_DIMX, devID, false,
-               slack, min_vect, row_cover, col_cover);
-
-    // finding minimum with cub
-    CUDA_RUNTIME(cub::DeviceReduce::Reduce(cub_storage, b1, min_vect, min_mat,
-                                           nbr, cub::Min(), MAX_DATA));
-
-    zeros_size = 0;
-    CUDA_RUNTIME(cudaMemset(zeros_size_b, 0, nb4));
-    uint gridDim = (uint)ceil(psize2 * 1.0 / BLOCK_DIMX);
-    execKernel(S6_update, gridDim, BLOCK_DIMX, devID, true,
-               slack, row_cover, col_cover, min_mat, zeros, zeros_size_b);
-    CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b2, zeros_size_b,
-                                        &zeros_size, nb4));
   }
 };
