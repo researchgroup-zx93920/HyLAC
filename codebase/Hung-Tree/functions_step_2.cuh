@@ -46,7 +46,7 @@ void initializeStep2(Vertices h_vertices, Vertices *d_vertices_dev, VertexData *
 	size_t size = N;
 	int start = 0;
 
-	// Not need to do it all the times!
+	// Not needed to do it all the times!
 	// cudaSafeCall(cudaMemcpy(h_vertices.row_assignments, d_vertices_dev[devid].row_assignments, N * sizeof(int), cudaMemcpyDeviceToHost), "Error in cudaMemcpy d_vertices_dev[devid].row_assignments");
 	// cudaSafeCall(cudaMemcpy(h_vertices.col_assignments, d_vertices_dev[devid].col_assignments, N * sizeof(int), cudaMemcpyDeviceToHost), "Error in cudaMemcpy d_vertices_dev[devid].col_assignments");
 

@@ -8,6 +8,7 @@
 #include "helper_utils.cuh"
 #include "LinearAssignmentProblem.cuh"
 #include "cost_generator.h"
+#include <iomanip>
 
 int main(int argc, char **argv)
 {
@@ -47,13 +48,23 @@ int main(int argc, char **argv)
 		double total_time = (end - start);
 
 		std::cout << "Size: " << problemsize << "\nrange: " << costrange << std::endl;
-		std::cout << "Obj val: " << obj_val << "\tItn count: " << stepcounts[3] << "\nTotal time: " << total_time << " s" << std::endl;
+		std::cout << "Obj val: " << obj_val << "\tItn count: " << stepcounts[3] << "\nTotal time: " << total_time << " sec" << std::endl;
 
 		// printHostArray(stepcounts, 7, "step counts: ");
-		// double *stimes = new double[9];
-		// lpx.getStepTimes(stimes);
+		double *stimes = new double[9];
+		lpx.getStepTimes(stimes);
 		// printHostArray(stimes, 9, "step times: ");
-		// delete[] stimes;
+		{
+			using namespace std;
+			cout << "S0:\t" << stepcounts[0] << "\t" << setprecision(2) << stimes[0] << endl;
+			cout << "S1:\t" << stepcounts[1] << "\t" << setprecision(2) << stimes[1] + stimes[2] << endl;
+			cout << "S2:\t" << stepcounts[2] << "\t" << setprecision(2) << stimes[3] << endl;
+			cout << "S3:\t" << stepcounts[3] << "\t" << setprecision(2) << stimes[4] + stimes[5] << endl;
+			cout << "S4:\t" << stepcounts[4] << "\t" << setprecision(2) << stimes[6] << endl;
+			cout << "S5:\t" << stepcounts[5] << "\t" << setprecision(2) << stimes[7] << endl;
+			// cout << "S6:\t" << stepcounts[6] << "\t" << stimes[8] << endl;
+		}
+		delete[] stimes;
 	}
 
 	delete[] cost_matrix;

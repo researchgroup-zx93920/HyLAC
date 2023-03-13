@@ -33,6 +33,8 @@ class LinearAssignmentProblem
 	VertexData *d_row_data_dev, *d_col_data_dev;
 	Predicates d_vertex_predicates;
 
+	bool *goto_4;
+
 public:
 	LinearAssignmentProblem(size_t _size, int *_stepcounts, int _numdev);
 	~LinearAssignmentProblem();
@@ -144,6 +146,8 @@ void LinearAssignmentProblem::initializeDevice(int devid)
 							 "Error in cudaMalloc d_vertex_predicates.predicates");
 	cudaSafeCall(cudaMalloc((void **)(&d_vertex_predicates.addresses), d_vertex_predicates.size * sizeof(long)),
 							 "Error in cudaMalloc d_vertex_predicates.addresses");
+
+	cudaSafeCall(cudaMallocManaged((void **)&goto_4, sizeof(bool)), "Error");
 }
 
 // Helper function for finalizing global variables and arrays on a single host.
@@ -172,7 +176,7 @@ void LinearAssignmentProblem::finalizeDev(int devid)
 
 	cudaSafeCall(cudaFree(d_vertex_predicates.predicates), "Error in cudaFree");
 	cudaSafeCall(cudaFree(d_vertex_predicates.addresses), "Error in cudaFree");
-
+	cudaSafeCall(cudaFree(goto_4), "Error in cudaFree");
 	cudaDeviceReset();
 }
 
@@ -359,9 +363,9 @@ int LinearAssignmentProblem::hungarianStep3(bool count_time)
 
 	int next;
 
-	// bool goto_4 = false;
-	bool *goto_4;
-	cudaMallocManaged((void **)&goto_4, sizeof(bool));
+	*goto_4 = false;
+	// bool *goto_4;
+	// cudaMallocManaged((void **)&goto_4, sizeof(bool));
 
 	// execute zero cover algorithm.
 	executeZeroCover(d_costs_dev, d_vertices_dev, d_row_data_dev,
@@ -386,7 +390,7 @@ int LinearAssignmentProblem::hungarianStep3(bool count_time)
 	///////////////////////////////////////////////////////////////////
 
 	prevstep = 3;
-	cudaFree(goto_4);
+	// cudaFree(goto_4);
 	return next;
 }
 
@@ -433,15 +437,14 @@ int LinearAssignmentProblem::hungarianStep5(bool count_time)
 	if (count_time)
 		steptimes[7] += (end - start);
 
-	prevstep = 5;
+	prevstep = 3;
 
 	return 3;
 }
 
+// Get objective final value
 int LinearAssignmentProblem::hungarianStep6(bool count_time)
 {
-
-	// consoleOut();
 
 	double start = omp_get_wtime();
 
