@@ -44,4 +44,4 @@ struct VertexData
 	double *slack;
 };
 
-int devID = 1;
+int devID = 0;

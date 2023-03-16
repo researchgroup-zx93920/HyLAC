@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 		double total_time = (end - start);
 
 		std::cout << "Size: " << problemsize << "\nrange: " << costrange << std::endl;
-		std::cout << "Obj val: " << obj_val << "\tItn count: " << stepcounts[3] << "\nTotal time: " << total_time << " sec" << std::endl;
+		std::cout << "Obj val: " << obj_val << "\nItn count: " << stepcounts[3] << "\nTotal time: " << total_time << " sec" << std::endl;
 
 		// printHostArray(stepcounts, 7, "step counts: ");
 		double *stimes = new double[9];

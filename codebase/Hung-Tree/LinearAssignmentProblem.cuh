@@ -34,6 +34,7 @@ class LinearAssignmentProblem
 	Predicates d_vertex_predicates;
 
 	bool *goto_4;
+	Array d_vertices_csr1;
 
 public:
 	LinearAssignmentProblem(size_t _size, int *_stepcounts, int _numdev);
@@ -148,6 +149,8 @@ void LinearAssignmentProblem::initializeDevice(int devid)
 							 "Error in cudaMalloc d_vertex_predicates.addresses");
 
 	cudaSafeCall(cudaMallocManaged((void **)&goto_4, sizeof(bool)), "Error");
+	cudaSafeCall(cudaMalloc((void **)(&d_vertices_csr1.elements), N * sizeof(int)),
+							 "Error in cudaMalloc d_vertices_csr1.elements"); // compact vertices initialized to the row ids.
 }
 
 // Helper function for finalizing global variables and arrays on a single host.
@@ -177,6 +180,7 @@ void LinearAssignmentProblem::finalizeDev(int devid)
 	cudaSafeCall(cudaFree(d_vertex_predicates.predicates), "Error in cudaFree");
 	cudaSafeCall(cudaFree(d_vertex_predicates.addresses), "Error in cudaFree");
 	cudaSafeCall(cudaFree(goto_4), "Error in cudaFree");
+	cudaSafeCall(cudaFree(d_vertices_csr1.elements), "Error in cudaFree d_vertices_csr1.elements");
 	cudaDeviceReset();
 }
 
@@ -284,7 +288,7 @@ int LinearAssignmentProblem::hungarianStep1(bool count_time)
 	// printDebugArray(d_vertices_dev[0].col_assignments, N, "col ass", 0);
 	///////////////////////////////////////////////////////////////////
 
-	//	while (true) {
+	/*	while (true) {
 
 	//		initial_assignment_count = 0;
 
@@ -295,7 +299,7 @@ int LinearAssignmentProblem::hungarianStep1(bool count_time)
 	//			break;
 
 	//		hungarianStep4(false);
-	//	}
+	}*/
 
 	double end = omp_get_wtime();
 
@@ -319,13 +323,13 @@ int LinearAssignmentProblem::hungarianStep2(bool count_time)
 	initializeStep2(h_vertices, d_vertices_dev, d_row_data_dev, d_col_data_dev, N, 0);
 
 	int cover_count = computeRowCovers(d_vertices_dev, N, 0);
-
-	///////////////////////////////////////////////////////////////////
+	Log(debug, "#matches %d", cover_count);
+	/*
 	// std::cout << "Covers: " << cover_count << std::endl;
 	// printDebugArray(d_vertices_dev[0].row_covers, N, "row cover", 0);
 	// printDebugArray(d_vertices_dev[0].col_covers, N, "col cover", 0);
-	///////////////////////////////////////////////////////////////////
-
+	*/
+	printDebugArray(d_vertices_dev[devID].row_assignments, N, "row assignments: ", devID);
 	if (initial_assignment_count == 0)
 		initial_assignment_count = cover_count;
 
@@ -362,18 +366,16 @@ int LinearAssignmentProblem::hungarianStep3(bool count_time)
 	///////////////////////////////////////////////////////////////
 
 	int next;
-
 	*goto_4 = false;
-	// bool *goto_4;
-	// cudaMallocManaged((void **)&goto_4, sizeof(bool));
 
 	// execute zero cover algorithm.
 	executeZeroCover(d_costs_dev, d_vertices_dev, d_row_data_dev,
-									 d_vertex_predicates, d_col_data_dev, goto_4, N, 0);
+									 d_vertex_predicates, d_vertices_csr1,
+									 d_col_data_dev, goto_4, N, 0);
 	cudaSafeCall(cudaDeviceSynchronize(), "Error in synchronizing device with host");
 
 	next = (*goto_4) ? 4 : 5;
-
+	// Log(debug, "goto_4: %d", (int)*goto_4);
 	///////////////////////////////////////////////////////////////
 
 	double end = omp_get_wtime();
@@ -384,13 +386,12 @@ int LinearAssignmentProblem::hungarianStep3(bool count_time)
 		steptimes[5] += (end - mid);
 	}
 
-	///////////////////////////////////////////////////////////////////
+	/*
 	// printDebugArray(d_vertices_dev[0].row_covers, N, "row cover", 0);
 	// printDebugArray(d_vertices_dev[0].col_covers, N, "col cover", 0);
-	///////////////////////////////////////////////////////////////////
+	*/
 
 	prevstep = 3;
-	// cudaFree(goto_4);
 	return next;
 }
 
@@ -426,11 +427,11 @@ int LinearAssignmentProblem::hungarianStep5(bool count_time)
 
 	computeTheta(h_device_min, d_costs_dev, d_vertices_dev, d_row_data_dev, d_col_data_dev, N, 0);
 
-	///////////////////////////////////////////////////////////////////
+	/*
 	// printDebugMatrix(d_costs_dev[0].elements, N, N, "costs");
 	// printDebugArray(d_costs_dev[0].row_duals, N, "row duals", 0);
 	// printDebugArray(d_costs_dev[0].col_duals, N, "col duals", 0);
-	///////////////////////////////////////////////////////////////////
+	*/
 
 	double end = omp_get_wtime();
 
@@ -454,9 +455,10 @@ int LinearAssignmentProblem::hungarianStep6(bool count_time)
 	{
 		int rowid = i;
 		int colid = h_vertices.row_assignments[rowid];
+		// std::cout << colid << ", ";
 		obj_val += h_costs.elements[i * N + colid];
 	}
-
+	// std::cout << std::endl;
 	//	printMemoryUsage ();
 	//	printf("used = %f MB\n", memory/1024.0/1024.0);
 
