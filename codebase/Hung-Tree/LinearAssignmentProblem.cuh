@@ -323,13 +323,9 @@ int LinearAssignmentProblem::hungarianStep2(bool count_time)
 	initializeStep2(h_vertices, d_vertices_dev, d_row_data_dev, d_col_data_dev, N, 0);
 
 	int cover_count = computeRowCovers(d_vertices_dev, N, 0);
+	nmatches = cover_count;
 	Log(debug, "#matches %d", cover_count);
-	/*
-	// std::cout << "Covers: " << cover_count << std::endl;
-	// printDebugArray(d_vertices_dev[0].row_covers, N, "row cover", 0);
-	// printDebugArray(d_vertices_dev[0].col_covers, N, "col cover", 0);
-	*/
-	printDebugArray(d_vertices_dev[devID].row_assignments, N, "row assignments: ", devID);
+
 	if (initial_assignment_count == 0)
 		initial_assignment_count = cover_count;
 

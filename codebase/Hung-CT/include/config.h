@@ -8,7 +8,7 @@ struct Config
   uint size;
   double frac;
   int deviceId;
-  int seed;
+  size_t seed;
 };
 
 static void usage()
@@ -27,7 +27,7 @@ static void printConfig(Config config)
   printf("  size: %u\n", config.size);
   printf("  frac: %f\n", config.frac);
   printf("  Device: %u\n", config.deviceId);
-  printf("  seed value: %d\n", config.seed);
+  printf("  seed value: %llu\n", config.seed);
 }
 
 static Config parseArgs(int argc, char **argv)
@@ -52,7 +52,7 @@ static Config parseArgs(int argc, char **argv)
       config.deviceId = atoi(optarg);
       break;
     case 's':
-      config.seed = atoi(optarg);
+      config.seed = std::stoull(optarg);
       break;
     case 'h':
       usage();

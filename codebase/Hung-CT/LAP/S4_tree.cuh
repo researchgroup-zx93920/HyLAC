@@ -10,11 +10,13 @@
 #include <thrust/reduce.h>
 #include <thrust/device_ptr.h>
 
+#include <type_traits>
+
 namespace tree
 {
   // Kernel for initializing the row or column vertices, later used for recursive frontier update (in Step 3).
   template <typename data = uint>
-  __global__ void Initialization(int *d_visited, int *d_row_assignments,
+  __global__ void Initialization(int *d_row_assignments,
                                  int *row_cover, int *col_cover,
                                  VertexData<data> row_data, VertexData<data> col_data)
   {
@@ -22,10 +24,10 @@ namespace tree
     if (id < SIZE)
     {
       int assignment = d_row_assignments[id];
-      d_visited[id] = (assignment == -1) ? ACTIVE : DORMANT;
+      row_data.is_visited[id] = (assignment == -1) ? ACTIVE : DORMANT;
+      row_cover[id] = (assignment == -1) ? 0 : 1;
 
-      // Initializing memory
-      // row_cover[id] = 0;
+      // Initializing rest of the memory
       col_cover[id] = 0;
 
       col_data.slack[id] = INFINITY;
@@ -93,7 +95,11 @@ __device__ void __traverse(data *d_costs, const double *row_duals, const double 
   while (ptr1 != d_end_ptr)
   {
     int rowid = *ptr1;
-    data slack = d_costs[rowid * SIZE + colid] - (data)(row_duals[rowid] + col_duals[colid]);
+    data slack;
+    if (std::is_same_v<data, uint> || std::is_same_v<data, int>)
+      slack = (data)(d_costs[rowid * SIZE + colid] - (int)(row_duals[rowid] + col_duals[colid]));
+    else
+      slack = d_costs[rowid * SIZE + colid] - (data)(row_duals[rowid] + col_duals[colid]);
     int nxt_rowid = col_ass[colid];
     if (rowid != nxt_rowid && col_cover[colid] == 0)
     {

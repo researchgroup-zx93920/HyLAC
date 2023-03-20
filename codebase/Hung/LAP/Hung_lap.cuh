@@ -113,8 +113,8 @@ public:
       execKernel(step_2, gh.nb4, temp_blockdim, dev_, true, gh);
     } while (repeat_kernel);
 
-    printDebugArray(gh.row_of_star_at_column, size_, "row ass");
-    printDebugArray(gh.column_of_star_at_row, size_, "col ass");
+    // printDebugArray(gh.row_of_star_at_column, size_, "row ass");
+    // printDebugArray(gh.column_of_star_at_row, size_, "col ass");
 
     // needed for cub reduce
     void *d_temp_storage = NULL;

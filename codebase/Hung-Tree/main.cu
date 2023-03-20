@@ -42,19 +42,19 @@ int main(int argc, char **argv)
 		double obj_val = 0;
 		LinearAssignmentProblem lpx(problemsize, stepcounts, 1);
 		lpx.solve(cost_matrix, obj_val);
-
+		uint obj = (uint)obj_val;
 		double end = omp_get_wtime();
 
 		double total_time = (end - start);
 
 		std::cout << "Size: " << problemsize << "\nrange: " << costrange << std::endl;
-		std::cout << "Obj val: " << obj_val << "\nItn count: " << stepcounts[3] << "\nTotal time: " << total_time << " sec" << std::endl;
+		std::cout << "Obj val: " << obj << "\nItn count: " << stepcounts[3] << "\nTotal time: " << total_time << " sec" << std::endl;
 
 		// printHostArray(stepcounts, 7, "step counts: ");
 		double *stimes = new double[9];
 		lpx.getStepTimes(stimes);
 		// printHostArray(stimes, 9, "step times: ");
-		{
+		/*{
 			using namespace std;
 			cout << "S0:\t" << stepcounts[0] << "\t" << setprecision(2) << stimes[0] << endl;
 			cout << "S1:\t" << stepcounts[1] << "\t" << setprecision(2) << stimes[1] + stimes[2] << endl;
@@ -63,8 +63,9 @@ int main(int argc, char **argv)
 			cout << "S4:\t" << stepcounts[4] << "\t" << setprecision(2) << stimes[6] << endl;
 			cout << "S5:\t" << stepcounts[5] << "\t" << setprecision(2) << stimes[7] << endl;
 			// cout << "S6:\t" << stepcounts[6] << "\t" << stimes[8] << endl;
-		}
+		}*/
 		delete[] stimes;
+		std::cout << "\n\n\n\n\n";
 	}
 
 	delete[] cost_matrix;

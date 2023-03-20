@@ -163,6 +163,23 @@ __global__ void min_reduce_kernel1(volatile data *g_idata, volatile data *g_odat
     g_odata[blockIdx.x] = minimum;
 }
 
+fundef S6_DualUpdate(const int *cover_row, const int *cover_column, const data *min_mat,
+                     double *min_in_rows, double *min_in_cols)
+{
+  const size_t i = (size_t)blockDim.x * blockIdx.x + (size_t)threadIdx.x;
+  if (i < SIZE)
+  {
+    if (cover_column[i] == 0)
+      min_in_rows[i] += ((double)1.0 * min_mat[0]) / 2;
+    else
+      min_in_rows[i] -= ((double)1.0 * min_mat[0]) / 2;
+    if (cover_row[i] == 0)
+      min_in_cols[i] += ((double)1.0 * min_mat[0]) / 2;
+    else
+      min_in_cols[i] -= ((double)1.0 * min_mat[0]) / 2;
+  }
+}
+
 fundef S6_update(data *slack, const int *row_cover, const int *col_cover,
                  const data *min_mat, size_t *zeros, size_t *zeros_size_b)
 {

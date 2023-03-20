@@ -22,7 +22,8 @@ private:
   uint nb4, nbr, dbs, l2dbs;
 
   // All device variables (To be added to a handle later)
-  data *row_duals, *col_duals, *slack;
+  double *row_duals, *col_duals;
+  data *slack;
   data *min_mat, *min_vect;
   int *row_ass, *col_ass, *row_cover, *col_cover;
   size_t *zeros, *zeros_size_b;
@@ -49,11 +50,11 @@ public:
     CUDA_RUNTIME(cudaMemcpyToSymbol(SIZE2, &psize2, sizeof(SIZE)));
 
     nb4 = max((uint)ceil((psize * 1.0) / cpbs4), 1);
-    nbr = min(psize, 256UL);
+    nbr = min(psize, 255UL);
     dbs = cpbs4 * pow(2, ceil(log2(psize)));
     l2dbs = (uint)log2(dbs);
 
-    Log(debug, " nb4: %u\n nbr: %u\n dbs: %u\n l2dbs %u\n", nb4, nbr, dbs, l2dbs);
+    // Log(debug, " nb4: %u\n nbr: %u\n dbs: %u\n l2dbs %u\n", nb4, nbr, dbs, l2dbs);
 
     CUDA_RUNTIME(cudaMemcpyToSymbol(NB4, &nb4, sizeof(NB4)));
     CUDA_RUNTIME(cudaMemcpyToSymbol(NBR, &nbr, sizeof(NBR)));
@@ -65,7 +66,6 @@ public:
 
   ~HLAP()
   {
-    Log(debug, "Destructor called!");
     DeAllocate();
   }
   void solve()
@@ -84,33 +84,31 @@ public:
     nmatch_cur = 0, nmatch_old = 0;
     CUDA_RUNTIME(cudaDeviceSynchronize());
     S3();
-    Log(debug, "nmatches# %d", nmatch_cur);
+    Log(info, "nmatches# %d", nmatch_cur);
     bool first = true;
     while (nmatch_cur < psize)
     {
-      printDeviceArray(row_ass, psize, "row assignments");
-      printDeviceArray(col_ass, psize, "col assignments");
-      // if (nmatch_cur - nmatch_old > 1)
-      // S456_classical();
-      // else
-      // {
-      if (first)
+
+      if (first && (nmatch_cur - nmatch_old) > 1)
+        S456_classical();
+      else
       {
-        CtoT();
-        first = false;
+        if (first)
+        {
+          CtoT();
+          first = false;
+          Log(info, "Switched to Tree after %d matches", nmatch_cur);
+        }
+        S456_tree();
       }
-      S456_tree();
-      // }
       S3();
-      Log(debug, "nmatches# %d", nmatch_cur);
-      // interrupt();
+      // Log(info, "nmatches# %d", nmatch_cur);
     }
     CUDA_RUNTIME(cudaFree(cub_storage));
 
-    // printDeviceMatrix<int>(row_ass, 1, psize, "row assignments");
     *objective = 0;
     uint gridDim = (uint)ceil((psize * 1.0) / BLOCK_DIMX);
-    execKernel(get_obj, gridDim, BLOCK_DIMX, devID, true,
+    execKernel(get_obj, gridDim, BLOCK_DIMX, devID, false,
                row_ass, d_costs, objective);
     printf("Obj val: %u\n", *objective);
   }
@@ -122,8 +120,8 @@ private:
     CUDA_RUNTIME(cudaMalloc((void **)&d_costs, N2 * sizeof(data)));
     CUDA_RUNTIME(cudaMemcpy(d_costs, h_costs, N2 * sizeof(data), cudaMemcpyDefault));
 
-    CUDA_RUNTIME(cudaMalloc((void **)&row_duals, N * sizeof(data)));
-    CUDA_RUNTIME(cudaMalloc((void **)&col_duals, N * sizeof(data)));
+    CUDA_RUNTIME(cudaMalloc((void **)&row_duals, N * sizeof(double)));
+    CUDA_RUNTIME(cudaMalloc((void **)&col_duals, N * sizeof(double)));
     CUDA_RUNTIME(cudaMalloc((void **)&slack, N2 * sizeof(data)));
 
     CUDA_RUNTIME(cudaMalloc((void **)&zeros, N2 * sizeof(size_t)));
@@ -168,35 +166,33 @@ private:
   {
 
     // row_reduce
-    execKernel(row_reduce, psize, BLOCK_DIMX, devID, true,
+    execKernel(row_reduce, psize, BLOCK_DIMX, devID, false,
                d_costs, row_duals, slack);
     // column reduce
     {
-      execKernel(col_min, psize, BLOCK_DIMX, devID, true,
+      execKernel(col_min, psize, BLOCK_DIMX, devID, false,
                  slack, col_duals); // uncoalesced
-      execKernel(col_sub, psize, BLOCK_DIMX, devID, true,
+      execKernel(col_sub, psize, BLOCK_DIMX, devID, false,
                  slack, col_duals);
     }
   }
   void S2() // Compress and cover zeros (makes the zeros matrix)
   {
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX);
-    execKernel(init, gridDim, BLOCK_DIMX, devID, true,
+    execKernel(init, gridDim, BLOCK_DIMX, devID, false,
                row_ass, col_ass, row_cover, col_cover);
     CUDA_RUNTIME(cudaMemset(zeros_size_b, 0, nb4 * sizeof(size_t)));
 
     gridDim = (uint)ceil(psize2 * 1.0 / BLOCK_DIMX);
-    execKernel(compress_matrix, gridDim, BLOCK_DIMX, devID, true,
+    execKernel(compress_matrix, gridDim, BLOCK_DIMX, devID, false,
                zeros, zeros_size_b, slack);
     zeros_size = thrust::reduce(thrust::device, zeros_size_b, zeros_size_b + nb4);
-    printDeviceArray(zeros_size_b, nb4, "zeros array");
-    // Log(debug, "Zeros size: %d", zeros_size);
 
     do
     {
       repeat_kernel = false;
       uint blockDim = (nb4 > 1 || zeros_size > BLOCK_DIMX) ? BLOCK_DIMX : zeros_size;
-      execKernel(step2, nb4, blockDim, devID, true,
+      execKernel(step2, nb4, blockDim, devID, false,
                  zeros, zeros_size_b, row_cover, col_cover, row_ass, col_ass);
     } while (repeat_kernel);
   }
@@ -208,7 +204,7 @@ private:
     nmatch_old = nmatch_cur;
     nmatch_cur = 0;
     CUDA_RUNTIME(cudaDeviceSynchronize());
-    execKernel(step3, gridDim, BLOCK_DIMX, devID, true, row_ass, col_cover, row_cover); // read from row_ass and write to col_cover
+    execKernel(step3, gridDim, BLOCK_DIMX, devID, false, row_ass, col_cover); // read from row_ass and write to col_cover
   }
   void S6() // Classical step 6
   {
@@ -222,8 +218,11 @@ private:
 
     zeros_size = 0;
     CUDA_RUNTIME(cudaMemset(zeros_size_b, 0, nb4));
-    uint gridDim = (uint)ceil(psize2 * 1.0 / BLOCK_DIMX);
-    execKernel(S6_update, gridDim, BLOCK_DIMX, devID, true,
+    uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX);
+    execKernel(S6_DualUpdate, gridDim, BLOCK_DIMX, devID, false, // Dual update for step6
+               row_cover, col_cover, min_mat, row_duals, col_duals);
+    gridDim = (uint)ceil(psize2 * 1.0 / BLOCK_DIMX);
+    execKernel(S6_update, gridDim, BLOCK_DIMX, devID, false,
                slack, row_cover, col_cover, min_mat, zeros, zeros_size_b);
     CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b2, zeros_size_b,
                                         &zeros_size, nb4));
@@ -232,7 +231,7 @@ private:
   void S456_classical() // Classical Version
   {
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX);
-    execKernel(S4_init, gridDim, BLOCK_DIMX, devID, true,
+    execKernel(S4_init, gridDim, BLOCK_DIMX, devID, false,
                col_prime, row_green);
     while (1)
     {
@@ -242,7 +241,7 @@ private:
         repeat_kernel = false;
         CUDA_RUNTIME(cudaDeviceSynchronize());
         uint blockDim = (nb4 > 1 || zeros_size > BLOCK_DIMX) ? BLOCK_DIMX : zeros_size;
-        execKernel(S4, nb4, blockDim, devID, true,
+        execKernel(S4, nb4, blockDim, devID, false,
                    row_cover, col_cover, col_prime,
                    zeros, zeros_size_b, col_ass);
       } while (repeat_kernel && !goto_5);
@@ -250,9 +249,9 @@ private:
         break;
       S6();
     }
-    execKernel(S5a, gridDim, BLOCK_DIMX, devID, true,
+    execKernel(S5a, gridDim, BLOCK_DIMX, devID, false,
                col_prime, row_green, row_ass, col_ass);
-    execKernel(S5b, gridDim, BLOCK_DIMX, devID, true,
+    execKernel(S5b, gridDim, BLOCK_DIMX, devID, false,
                row_green, row_ass, col_ass);
   }
 
@@ -277,7 +276,7 @@ private:
 
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX); // Linear Grid dimension
 
-    execKernel(transfer_duals<data>, gridDim, BLOCK_DIMX, devID, true,
+    execKernel(transfer_duals<data>, gridDim, BLOCK_DIMX, devID, false,
                row_duals, col_duals, row_duals_tree, col_duals_tree);
   }
   void S456_tree() // Tree Version
@@ -285,16 +284,16 @@ private:
     goto_5 = false;
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX); // Linear Grid dimension
 
-    execKernel((tree::Initialization<data>), gridDim, BLOCK_DIMX, devID, true,
-               row_data.is_visited, row_ass,
+    execKernel((tree::Initialization<data>), gridDim, BLOCK_DIMX, devID, false,
+               row_ass,
                row_cover, col_cover,
                row_data, col_data);
     while (true)
     {
       // S4
       // sets each element to its index
-      execKernel(tree::S4_init, gridDim, BLOCK_DIMX, devID, true, vertices_csr1);
-      printDeviceArray(vertices_csr1, psize, "csr1: ");
+      execKernel(tree::S4_init, gridDim, BLOCK_DIMX, devID, false, vertices_csr1);
+
       int *vertices_csr2;
       size_t csr2_size;
       do
@@ -303,52 +302,31 @@ private:
         CUDA_RUNTIME(cudaMemset(vertex_predicates.predicates, false, psize * sizeof(bool)));
         CUDA_RUNTIME(cudaMemset(vertex_predicates.addresses, 0, psize * sizeof(long)));
 
-        execKernel(vertexPredicateConstructionCSR, gridDim, BLOCK_DIMX, devID, true,
+        execKernel(vertexPredicateConstructionCSR, gridDim, BLOCK_DIMX, devID, false,
                    vertex_predicates, vertices_csr1, row_data.is_visited);
-        printDeviceArray<long>(vertex_predicates.addresses, psize, "Predicates");
+
         thrust::device_ptr<long> startPtr(vertex_predicates.addresses);
         // thrust::device_ptr<long> endPtr(&vertex_predicates.addresses[psize]);
         csr2_size = thrust::reduce(startPtr, startPtr + psize); // calculate total number of vertices.
         // exclusive scan for calculating the scatter addresses.
         thrust::exclusive_scan(startPtr, startPtr + psize, startPtr);
         CUDA_RUNTIME(cudaDeviceSynchronize());
-
-        // Log(debug, "csr2 size: %lu", csr2_size);
         if (csr2_size > 0)
         {
           CUDA_RUNTIME(cudaMalloc((void **)&vertices_csr2, csr2_size * sizeof(int)));
-          execKernel(vertexScatterCSR, gridDim, BLOCK_DIMX, devID, true,
+          execKernel(vertexScatterCSR, gridDim, BLOCK_DIMX, devID, false,
                      vertices_csr2, vertices_csr1, row_data.is_visited, vertex_predicates);
-          printDeviceArray<int>(vertices_csr2, csr2_size, "Post-Scatter");
         }
         else
-        {
-          printDeviceArray<int>(vertices_csr2, csr2_size, "Post-Scatter");
           break;
-        }
-        // printDeviceMatrix<data>(d_costs, psize, psize, "Costs");
-        printDeviceArray<double>(row_duals_tree, psize, "row duals");
-        printDeviceArray<double>(col_duals_tree, psize, "col duals");
-        printDeviceArray<int>(row_data.is_visited, psize, "row visited");
-        printDeviceArray<data>(col_data.slack, psize, "col slack");
-        printDeviceArray<int>(row_data.parents, psize, "row parents");
-        printDeviceArray<int>(col_data.parents, psize, "col parents");
-        printDeviceArray<int>(row_cover, psize, "row cover");
-        printDeviceArray<int>(col_cover, psize, "col cover");
+
         // Traverse the frontier, cover zeros and expand.
         // -- Most time consuming function
-        execKernel((coverAndExpand<data>), gridDim, BLOCK_DIMX, devID, true,
+        execKernel((coverAndExpand<data>), gridDim, BLOCK_DIMX, devID, false,
                    vertices_csr2, csr2_size,
                    d_costs, row_duals_tree, col_duals_tree,
                    row_ass, col_ass, row_cover, col_cover,
                    row_data, col_data);
-        printDeviceArray<int>(row_data.parents, psize, "row parents");
-        printDeviceArray<int>(col_data.parents, psize, "col parents");
-        printDeviceArray<int>(row_data.is_visited, psize, "row visited");
-        printDeviceArray<int>(col_data.is_visited, psize, "col visited");
-        printDeviceArray<data>(col_data.slack, psize, "col slack");
-        printDeviceArray<int>(row_cover, psize, "row cover");
-        printDeviceArray<int>(col_cover, psize, "col cover");
 
         CUDA_RUNTIME(cudaFree(vertices_csr2));
       } while (!goto_5);
@@ -372,15 +350,13 @@ private:
         }
       }
       theta /= 2;
-      Log(debug, "theta: %f", theta);
-      execKernel((tree::dualUpdate<data>), gridDim, BLOCK_DIMX, devID, true,
+      execKernel((tree::dualUpdate<data>), gridDim, BLOCK_DIMX, devID, false,
                  theta, row_duals_tree, col_duals_tree, col_data.slack, row_cover, col_cover,
                  col_data.parents, row_data.is_visited);
 
       delete[] temp;
       delete[] temp2;
-      printDeviceArray<double>(row_duals_tree, psize, "row dual");
-      printDeviceArray<double>(col_duals_tree, psize, "col dual");
+
       // exit(-1);
     }
 
@@ -396,7 +372,7 @@ private:
     CUDA_RUNTIME(cudaMemset(col_predicates.predicates, false, psize * sizeof(bool)));
     CUDA_RUNTIME(cudaMemset(col_predicates.addresses, 0, psize * sizeof(long)));
 
-    execKernel(augmentPredicateConstruction, gridDim, BLOCK_DIMX, devID, true,
+    execKernel(augmentPredicateConstruction, gridDim, BLOCK_DIMX, devID, false,
                col_predicates, col_data.is_visited);
 
     thrust::device_ptr<long> ptr(col_predicates.addresses);
@@ -406,10 +382,10 @@ private:
     {
       uint local_gridDim = ceil((col_id_size * 1.0) / BLOCK_DIMX);
       CUDA_RUNTIME(cudaMalloc((void **)&col_id_csr, col_id_size * sizeof(int)));
-      execKernel(augmentScatter, gridDim, BLOCK_DIMX, devID, true,
+      execKernel(augmentScatter, gridDim, BLOCK_DIMX, devID, false,
                  col_id_csr, col_predicates);
       // exit(0);
-      execKernel(reverseTraversal<data>, local_gridDim, BLOCK_DIMX, devID, true,
+      execKernel(reverseTraversal<data>, local_gridDim, BLOCK_DIMX, devID, false,
                  col_id_csr, row_data, col_data, col_id_size);
       CUDA_RUNTIME(cudaFree(col_id_csr));
     }
@@ -425,7 +401,7 @@ private:
     CUDA_RUNTIME(cudaMemset(row_predicates.predicates, false, psize * sizeof(bool)));
     CUDA_RUNTIME(cudaMemset(row_predicates.addresses, 0, psize * sizeof(long)));
 
-    execKernel(augmentPredicateConstruction, gridDim, BLOCK_DIMX, devID, true,
+    execKernel(augmentPredicateConstruction, gridDim, BLOCK_DIMX, devID, false,
                row_predicates, row_data.is_visited);
     ptr = thrust::device_ptr<long>(row_predicates.addresses);
     size_t row_id_size = thrust::reduce(ptr, ptr + row_predicates.size); // calculate total number of vertices.
@@ -435,9 +411,9 @@ private:
     {
       uint local_gridDim = ceil((row_id_size * 1.0) / BLOCK_DIMX);
       CUDA_RUNTIME(cudaMalloc((void **)&row_id_csr, row_id_size * sizeof(int)));
-      execKernel(augmentScatter, gridDim, BLOCK_DIMX, devID, true,
+      execKernel(augmentScatter, gridDim, BLOCK_DIMX, devID, false,
                  row_id_csr, row_predicates);
-      execKernel(augment, local_gridDim, BLOCK_DIMX, devID, true,
+      execKernel(augment, local_gridDim, BLOCK_DIMX, devID, false,
                  row_ass, col_ass, row_id_csr, row_data, col_data, row_id_size);
       CUDA_RUNTIME(cudaFree(row_id_csr));
     }

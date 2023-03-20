@@ -11,7 +11,7 @@
 using namespace std;
 
 template <typename T>
-T *generate_cost(Config config, const int seed = 45345)
+T *generate_cost(Config config, const size_t seed = 45345)
 {
   size_t size = config.size;
   size_t nrows = size;

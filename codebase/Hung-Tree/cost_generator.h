@@ -7,7 +7,7 @@
 using namespace std;
 
 template <typename T>
-T *generate_cost(int problemSize, double costrange, const int seed = 45345)
+T *generate_cost(int problemSize, double costrange, const size_t seed = 45345)
 {
   size_t user_n = (size_t)problemSize;
   size_t nrows = user_n;
@@ -30,13 +30,13 @@ T *generate_cost(int problemSize, double costrange, const int seed = 45345)
     {
       default_random_engine generator(seed + r);
       generator.discard(1);
-      uniform_int_distribution<int> distribution(0, range - 1);
+      uniform_int_distribution<uint> distribution(0, range - 1);
       for (size_t c = 0; c < ncols; c++)
       {
         if (c < user_n && r < user_n)
         {
           double gen = distribution(generator);
-          cost[user_n * r + c] = gen;
+          cost[user_n * r + c] = (T)gen;
         }
         else
         {

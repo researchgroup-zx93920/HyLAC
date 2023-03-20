@@ -45,3 +45,4 @@ struct VertexData
 };
 
 int devID = 0;
+int nmatches = 0;

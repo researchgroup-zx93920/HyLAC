@@ -8,6 +8,7 @@
 #include <cmath>
 #include "structures.h"
 #include "variables.h"
+#include "logger.cuh"
 
 bool verbose = false;
 #define cudaSafeCall(ans, message)                 \
@@ -25,13 +26,13 @@ inline void gpuAssert(cudaError_t error, const char *message, const char *file, 
 	}
 }
 
-#define execKernel(kernel, grid, block, ...)                                           \
-	{                                                                                    \
-		if (verbose)                                                                       \
-			printf("Launching %s with nblocks: %u, blockDim: %u", #kernel, grid.x, block.x); \
-		kernel<<<grid, block>>>(__VA_ARGS__);                                              \
-		cudaSafeCall(cudaGetLastError(), "Error in kernel launch");                        \
-		cudaSafeCall(cudaDeviceSynchronize(), "Error in Synchronization");                 \
+#define execKernel(kernel, grid, block, ...)                                              \
+	{                                                                                       \
+		if (verbose)                                                                          \
+			Log(info, "Launching %s with nblocks: %u, blockDim: %u", #kernel, grid.x, block.x); \
+		kernel<<<grid, block>>>(__VA_ARGS__);                                                 \
+		cudaSafeCall(cudaGetLastError(), "Error in kernel launch");                           \
+		cudaSafeCall(cudaDeviceSynchronize(), "Error in Synchronization");                    \
 	}
 
 // Helper function for printing device memory info.
@@ -238,7 +239,7 @@ void printDebugArray(int *d_array, int size, const char *name, unsigned int devi
 	cudaMemcpyAsync(h_array, d_array, size * sizeof(int), cudaMemcpyDeviceToHost);
 	for (int i = 0; i < size; i++)
 	{
-		std::cout << h_array[i] << "\t";
+		std::cout << h_array[i] << ",";
 	}
 	std::cout << std::endl;
 
@@ -256,7 +257,7 @@ void printDebugArray(long *d_array, int size, const char *name, unsigned int dev
 	cudaMemcpyAsync(h_array, d_array, size * sizeof(long), cudaMemcpyDeviceToHost);
 	for (int i = 0; i < size; i++)
 	{
-		std::cout << h_array[i] << "\t";
+		std::cout << h_array[i] << ",";
 	}
 	std::cout << std::endl;
 
@@ -274,11 +275,29 @@ void printDebugArray(double *d_array, int size, const char *name, unsigned int d
 	cudaMemcpyAsync(h_array, d_array, size * sizeof(double), cudaMemcpyDeviceToHost);
 	for (int i = 0; i < size; i++)
 	{
-		std::cout << h_array[i] << "\t";
+		std::cout << h_array[i] << ",";
 	}
 	std::cout << std::endl;
 
 	delete[] h_array;
+}
+
+void printDebugMatrix(int *d_matrix, int rowsize, int colsize, const char *name)
+{
+	int *h_matrix = new int[rowsize * colsize];
+
+	std::cout << name << std::endl;
+	cudaMemcpy(h_matrix, d_matrix, rowsize * colsize * sizeof(int), cudaMemcpyDeviceToHost);
+	for (int i = 0; i < rowsize; i++)
+	{
+		for (int j = 0; j < colsize - 1; j++)
+		{
+			std::cout << h_matrix[i * colsize + j] << ",";
+		}
+		std::cout << h_matrix[i * colsize + colsize - 1] << std::endl;
+	}
+
+	delete[] h_matrix;
 }
 
 void printDebugMatrix(double *d_matrix, int rowsize, int colsize, const char *name)

@@ -14,10 +14,10 @@ int main(int argc, char **argv)
 {
   Config config = parseArgs(argc, argv);
   printf("\033[0m");
-  printf("Welcome ---------------------\n");
+  // printf("Welcome ---------------------\n");
   printConfig(config);
 
-  int seed = config.seed;
+  size_t seed = config.seed;
   int size = config.size;
   int dev = config.deviceId;
 
@@ -38,6 +38,6 @@ int main(int argc, char **argv)
   lpx.solve();
   time = t.elapsed_and_reset();
   Log(info, "Solve time %f s", time);
-
+  std::cout << "\n\n\n\n\n";
   delete[] h_costs;
 }

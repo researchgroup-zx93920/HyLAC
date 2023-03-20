@@ -5,7 +5,7 @@
 #include "utils.cuh"
 #include "device_utils.cuh"
 
-__global__ void step3(const int *row_ass, int *col_cover, int *row_cover)
+__global__ void step3(const int *row_ass, int *col_cover)
 {
   size_t tid = threadIdx.x;
   size_t i = tid + (size_t)blockIdx.x * blockDim.x;
@@ -18,7 +18,6 @@ __global__ void step3(const int *row_ass, int *col_cover, int *row_cover)
     if (row_ass[i] >= 0)
     {
       col_cover[i] = 1;
-      row_cover[i] = 1;
       atomicAdd((int *)&matches, 1);
     }
   }

@@ -7,7 +7,7 @@
 #include "structures.h"
 
 template <typename data = uint>
-__global__ void transfer_duals(data *row_duals, data *col_duals, double *row_duals_tree, double *col_duals_tree)
+__global__ void transfer_duals(double *row_duals, double *col_duals, double *row_duals_tree, double *col_duals_tree)
 {
   size_t id = blockIdx.x * blockDim.x + threadIdx.x;
   if (id < SIZE)
@@ -21,14 +21,13 @@ namespace tree
 {
   template <typename data = uint>
   __global__ void dualUpdate(double min_val, double *row_duals, double *col_duals, data *col_slacks,
-                             int *row_covers, int *col_covers, int *col_parents, int *row_visited,
-                             const int row_start = 0, const int row_count = SIZE, const size_t N = SIZE)
+                             int *row_covers, int *col_covers, int *col_parents, int *row_visited)
   {
     size_t id = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (id < SIZE)
     {
-      int row_cover = row_covers[id + row_start];
+      int row_cover = row_covers[id];
       int col_cover = col_covers[id];
 
       if (row_cover == 0) // Row is labeled

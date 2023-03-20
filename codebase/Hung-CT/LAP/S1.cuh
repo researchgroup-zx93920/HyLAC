@@ -5,7 +5,7 @@
 #include "utils.cuh"
 #include "device_utils.cuh"
 
-fundef row_reduce(const data *cost, data *row_min, data *slack)
+fundef row_reduce(const data *cost, double *row_min, data *slack)
 {
   const size_t tid = threadIdx.x;
   const size_t rowID = (size_t)blockIdx.x * SIZE;
@@ -19,16 +19,16 @@ fundef row_reduce(const data *cost, data *row_min, data *slack)
   __shared__ typename BR::TempStorage temp_storage;
   thread_min = BR(temp_storage).Reduce(thread_min, cub::Min());
   if (threadIdx.x == 0)
-    row_min[blockIdx.x] = thread_min;
+    row_min[blockIdx.x] = (double)thread_min;
   __syncthreads();
 
   for (size_t i = tid; i < SIZE; i += blockDim.x)
   {
-    slack[i + rowID] = cost[i + rowID] - row_min[blockIdx.x];
+    slack[i + rowID] = cost[i + rowID] - (data)row_min[blockIdx.x];
   }
 }
 
-fundef col_min(const data *slack, data *col_min)
+fundef col_min(const data *slack, double *col_min)
 {
   size_t tid = (size_t)threadIdx.x;
   const size_t colID = blockIdx.x;
@@ -43,15 +43,15 @@ fundef col_min(const data *slack, data *col_min)
   thread_min = BR(temp_storage).Reduce(thread_min, cub::Min());
 
   if (threadIdx.x == 0)
-    col_min[blockIdx.x] = thread_min;
+    col_min[blockIdx.x] = (double)thread_min;
 }
 
-fundef col_sub(data *slack, data *col_min)
+fundef col_sub(data *slack, double *col_min)
 {
   size_t tid = threadIdx.x;
   const size_t rowID = (size_t)blockIdx.x * SIZE;
   for (size_t i = tid; i < SIZE; i += blockDim.x)
   {
-    slack[i + rowID] = slack[i + rowID] - col_min[i];
+    slack[i + rowID] = slack[i + rowID] - (data)col_min[i];
   }
 }

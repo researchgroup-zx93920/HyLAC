@@ -2,7 +2,7 @@ NVCC ?= nvcc
 TARGET_EXEC ?= a.out
 
 # EXEDIR=../test_execs
-BUILD_DIR ?=./build1
+BUILD_DIR ?=./build
 OBJ_DIR ?=$(BUILD_DIR)/o
 EXE_DIR ?= $(BUILD_DIR)/exe
 
@@ -23,7 +23,7 @@ INC_FLAGS := $(addprefix -I,$(INCL_DIRS))
 
 LDFLAGS := -lcuda -lgomp
 CPPFLAGS ?= $(INC_FLAGS) -std=c++11 -O3
-CUDAFLAGS ?= $(INC_FLAGS) -g -Xcompiler -fopenmp -lineinfo -O3 -arch=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=sm_$(ARCH) \
+CUDAFLAGS ?= $(INC_FLAGS) -g -Xcompiler -rdynamic -lineinfo -O3 -arch=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=sm_$(ARCH) \
 						-gencode=arch=compute_$(ARCH),code=compute_$(ARCH)
 CUDADEBUGFLAGS ?= $(INC_FLAGS) -g -G -Xcompiler -fopenmp -O3 -arch=sm_$(ARCH) -gencode=arch=compute_$(ARCH),code=sm_$(ARCH) 
 						-gencode=arch=compute_$(ARCH),code=compute_$(ARCH)
