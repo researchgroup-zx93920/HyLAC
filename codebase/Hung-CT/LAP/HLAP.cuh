@@ -27,7 +27,7 @@ private:
   data *min_mat, *min_vect;
   int *row_ass, *col_ass, *row_cover, *col_cover;
   size_t *zeros, *zeros_size_b;
-  int *row_green, *col_prime;
+  int *row_visited, *col_visited;
   void *cub_storage = NULL;
 
   // device variables for tree-Hungarian
@@ -37,7 +37,9 @@ private:
   Predicates vertex_predicates;
   double *row_duals_tree, *col_duals_tree;
 
-  size_t b1 = 0, b2 = 0, b3 = 0;
+  bool *goto5_tree;
+
+  size_t b1 = 0, b2 = 0, b3 = 0, b4 = 0;
 
   int counter;
 
@@ -71,15 +73,20 @@ public:
   void solve()
   {
     Allocate();
-
-    S1();
-    S2();
-
     // needed for cub reduce
 
     CUDA_RUNTIME(cub::DeviceReduce::Reduce(cub_storage, b1, min_vect, min_mat, nbr, cub::Min(), MAX_DATA));
-    CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b2, zeros_size_b, &zeros_size, nb4));
-    CUDA_RUNTIME(cudaMalloc(&cub_storage, max(b1, b2)));
+    CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b2, zeros_size_b, &zeros_size, (int)nb4));
+    CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b3, vertex_predicates.addresses, (long *)nullptr, (int)psize));
+    CUDA_RUNTIME(cub::DeviceScan::ExclusiveSum(cub_storage, b4, vertex_predicates.addresses, (long *)nullptr, (int)psize));
+    size_t greatest = max(b1, b2);
+    greatest = max(greatest, b3);
+    greatest = max(greatest, b4);
+    CUDA_RUNTIME(cudaMalloc(&cub_storage, greatest));
+
+    S1();
+    // S2();
+    computeInitialAssignments();
 
     nmatch_cur = 0, nmatch_old = 0;
     CUDA_RUNTIME(cudaDeviceSynchronize());
@@ -89,7 +96,7 @@ public:
     while (nmatch_cur < psize)
     {
 
-      if (first && (nmatch_cur - nmatch_old) > 1)
+      if (false)
         S456_classical();
       else
       {
@@ -110,7 +117,7 @@ public:
     uint gridDim = (uint)ceil((psize * 1.0) / BLOCK_DIMX);
     execKernel(get_obj, gridDim, BLOCK_DIMX, devID, false,
                row_ass, d_costs, objective);
-    printf("Obj val: %u\n", *objective);
+    printf("Obj val: %u\n", (uint)*objective);
   }
 
 private:
@@ -135,32 +142,52 @@ private:
     CUDA_RUNTIME(cudaMalloc((void **)&min_vect, nbr * sizeof(data)));
     CUDA_RUNTIME(cudaMalloc((void **)&min_mat, 1 * sizeof(data)));
 
-    CUDA_RUNTIME(cudaMalloc((void **)&row_green, N * sizeof(int)));
-    CUDA_RUNTIME(cudaMalloc((void **)&col_prime, N * sizeof(int)));
+    CUDA_RUNTIME(cudaMalloc((void **)&row_visited, N * sizeof(int)));
+    CUDA_RUNTIME(cudaMalloc((void **)&col_visited, N * sizeof(int)));
 
     CUDA_RUNTIME(cudaMallocManaged((void **)&objective, 1 * sizeof(data)));
+    CUDA_RUNTIME(cudaMallocManaged((void **)&goto5_tree, 1 * sizeof(bool)));
   }
-  void DeAllocate()
+  void DeAllocate(algEnum alg = CLASSICAL)
   {
+    // if (alg == CLASSICAL || alg = BOTH)
+    /*{
+      CUDA_RUNTIME(cudaFree(zeros));
+      CUDA_RUNTIME(cudaFree(zeros_size_b));
+      CUDA_RUNTIME(cudaFree(min_vect));
+      CUDA_RUNTIME(cudaFree(min_mat));
+      CUDA_RUNTIME(cudaFree(slack));
+    }*/
+
+    // if (alg == TREE || alg == BOTH)
+    {
+
+      CUDA_RUNTIME(cudaFree(row_cover));
+      CUDA_RUNTIME(cudaFree(col_cover));
+      CUDA_RUNTIME(cudaFree(row_visited));
+      CUDA_RUNTIME(cudaFree(col_visited));
+      CUDA_RUNTIME(cudaFree(row_data.is_visited));
+      CUDA_RUNTIME(cudaFree(row_data.parents));
+      CUDA_RUNTIME(cudaFree(row_data.children));
+
+      CUDA_RUNTIME(cudaFree(col_data.is_visited));
+      CUDA_RUNTIME(cudaFree(col_data.parents));
+      CUDA_RUNTIME(cudaFree(col_data.children));
+      CUDA_RUNTIME(cudaFree(col_data.slack));
+
+      CUDA_RUNTIME(cudaFree(vertex_predicates.predicates));
+      CUDA_RUNTIME(cudaFree(vertex_predicates.addresses));
+      CUDA_RUNTIME(cudaFree(vertices_csr1));
+    }
+    CUDA_RUNTIME(cudaFree(objective));
     CUDA_RUNTIME(cudaFree(d_costs));
     CUDA_RUNTIME(cudaFree(row_duals));
     CUDA_RUNTIME(cudaFree(col_duals));
-    CUDA_RUNTIME(cudaFree(slack));
-
-    CUDA_RUNTIME(cudaFree(zeros));
-    CUDA_RUNTIME(cudaFree(zeros_size_b));
 
     CUDA_RUNTIME(cudaFree(row_ass));
     CUDA_RUNTIME(cudaFree(col_ass));
-    CUDA_RUNTIME(cudaFree(row_cover));
-    CUDA_RUNTIME(cudaFree(col_cover));
-
-    CUDA_RUNTIME(cudaFree(min_vect));
-    CUDA_RUNTIME(cudaFree(min_mat));
-
-    CUDA_RUNTIME(cudaFree(row_green));
-    CUDA_RUNTIME(cudaFree(col_prime));
-    CUDA_RUNTIME(cudaFree(objective));
+    CUDA_RUNTIME(cudaFree(goto5_tree));
+    CUDA_RUNTIME(cudaDeviceReset());
   }
   void S1() // Row and column reduction
   {
@@ -168,6 +195,7 @@ private:
     // row_reduce
     execKernel(row_reduce, psize, BLOCK_DIMX, devID, false,
                d_costs, row_duals, slack);
+
     // column reduce
     {
       execKernel(col_min, psize, BLOCK_DIMX, devID, false,
@@ -186,13 +214,15 @@ private:
     gridDim = (uint)ceil(psize2 * 1.0 / BLOCK_DIMX);
     execKernel(compress_matrix, gridDim, BLOCK_DIMX, devID, false,
                zeros, zeros_size_b, slack);
-    zeros_size = thrust::reduce(thrust::device, zeros_size_b, zeros_size_b + nb4);
+
+    CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b2, zeros_size_b,
+                                        &zeros_size, (int)nb4));
 
     do
     {
       repeat_kernel = false;
       uint blockDim = (nb4 > 1 || zeros_size > BLOCK_DIMX) ? BLOCK_DIMX : zeros_size;
-      execKernel(step2, nb4, blockDim, devID, false,
+      execKernel(step2, nb4, blockDim, devID, true,
                  zeros, zeros_size_b, row_cover, col_cover, row_ass, col_ass);
     } while (repeat_kernel);
   }
@@ -232,7 +262,7 @@ private:
   {
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX);
     execKernel(S4_init, gridDim, BLOCK_DIMX, devID, false,
-               col_prime, row_green);
+               col_visited, row_visited);
     while (1)
     {
       do
@@ -242,7 +272,7 @@ private:
         CUDA_RUNTIME(cudaDeviceSynchronize());
         uint blockDim = (nb4 > 1 || zeros_size > BLOCK_DIMX) ? BLOCK_DIMX : zeros_size;
         execKernel(S4, nb4, blockDim, devID, false,
-                   row_cover, col_cover, col_prime,
+                   row_cover, col_cover, col_visited,
                    zeros, zeros_size_b, col_ass);
       } while (repeat_kernel && !goto_5);
       if (goto_5)
@@ -250,21 +280,28 @@ private:
       S6();
     }
     execKernel(S5a, gridDim, BLOCK_DIMX, devID, false,
-               col_prime, row_green, row_ass, col_ass);
+               col_visited, row_visited, row_ass, col_ass);
     execKernel(S5b, gridDim, BLOCK_DIMX, devID, false,
-               row_green, row_ass, col_ass);
+               row_visited, row_ass, col_ass);
   }
 
   void CtoT()
   {
+    CUDA_RUNTIME(cudaFree(zeros));
+    CUDA_RUNTIME(cudaFree(zeros_size_b));
+    CUDA_RUNTIME(cudaFree(min_vect));
+    CUDA_RUNTIME(cudaFree(min_mat));
+    CUDA_RUNTIME(cudaFree(slack));
+
     const size_t N = psize;
     CUDA_RUNTIME(cudaMalloc((void **)&row_data.is_visited, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&row_data.parents, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&row_data.children, N * sizeof(int)));
 
-    CUDA_RUNTIME(cudaMalloc((void **)&row_duals_tree, N * sizeof(double)));
-    CUDA_RUNTIME(cudaMalloc((void **)&col_duals_tree, N * sizeof(double)));
-
+    // CUDA_RUNTIME(cudaMalloc((void **)&row_duals_tree, N * sizeof(double)));
+    // CUDA_RUNTIME(cudaMalloc((void **)&col_duals_tree, N * sizeof(double)));
+    row_duals_tree = row_duals;
+    col_duals_tree = col_duals;
     CUDA_RUNTIME(cudaMalloc((void **)&col_data.is_visited, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&col_data.parents, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&col_data.children, N * sizeof(int)));
@@ -274,14 +311,17 @@ private:
     CUDA_RUNTIME(cudaMalloc((void **)&vertex_predicates.addresses, N * sizeof(long)));
     CUDA_RUNTIME(cudaMalloc((void **)&vertices_csr1, N * sizeof(int)));
 
-    uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX); // Linear Grid dimension
+    // uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX); // Linear Grid dimension
 
-    execKernel(transfer_duals<data>, gridDim, BLOCK_DIMX, devID, false,
-               row_duals, col_duals, row_duals_tree, col_duals_tree);
+    // execKernel(transfer_duals<data>, gridDim, BLOCK_DIMX, devID, false,
+    //            row_duals, col_duals, row_duals_tree, col_duals_tree);
+    size_t total = 0, free = 0;
+    cudaMemGetInfo(&free, &total);
+    Log(warn, "Occupied %f GB", ((total - free) * 1.0) / (1024 * 1024 * 1024));
   }
   void S456_tree() // Tree Version
   {
-    goto_5 = false;
+    *goto5_tree = false;
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX); // Linear Grid dimension
 
     execKernel((tree::Initialization<data>), gridDim, BLOCK_DIMX, devID, false,
@@ -295,7 +335,7 @@ private:
       execKernel(tree::S4_init, gridDim, BLOCK_DIMX, devID, false, vertices_csr1);
 
       int *vertices_csr2;
-      size_t csr2_size;
+      // long csr2_size;
       do
       {
         // compact Row vertices
@@ -305,12 +345,10 @@ private:
         execKernel(vertexPredicateConstructionCSR, gridDim, BLOCK_DIMX, devID, false,
                    vertex_predicates, vertices_csr1, row_data.is_visited);
 
-        thrust::device_ptr<long> startPtr(vertex_predicates.addresses);
-        // thrust::device_ptr<long> endPtr(&vertex_predicates.addresses[psize]);
-        csr2_size = thrust::reduce(startPtr, startPtr + psize); // calculate total number of vertices.
-        // exclusive scan for calculating the scatter addresses.
-        thrust::exclusive_scan(startPtr, startPtr + psize, startPtr);
+        CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b3, vertex_predicates.addresses, &csr2_size, (int)psize));
+        CUDA_RUNTIME(cub::DeviceScan::ExclusiveSum(cub_storage, b4, vertex_predicates.addresses, vertex_predicates.addresses, (int)psize));
         CUDA_RUNTIME(cudaDeviceSynchronize());
+
         if (csr2_size > 0)
         {
           CUDA_RUNTIME(cudaMalloc((void **)&vertices_csr2, csr2_size * sizeof(int)));
@@ -323,16 +361,16 @@ private:
         // Traverse the frontier, cover zeros and expand.
         // -- Most time consuming function
         execKernel((coverAndExpand<data>), gridDim, BLOCK_DIMX, devID, false,
+                   goto5_tree,
                    vertices_csr2, csr2_size,
                    d_costs, row_duals_tree, col_duals_tree,
                    row_ass, col_ass, row_cover, col_cover,
                    row_data, col_data);
 
         CUDA_RUNTIME(cudaFree(vertices_csr2));
-      } while (!goto_5);
-      if (goto_5)
+      } while (!*goto5_tree);
+      if (*goto5_tree)
         break;
-      // else
 
       // S6 Update dual solution --done on host
       data *temp = new data[psize];
@@ -375,16 +413,15 @@ private:
     execKernel(augmentPredicateConstruction, gridDim, BLOCK_DIMX, devID, false,
                col_predicates, col_data.is_visited);
 
-    thrust::device_ptr<long> ptr(col_predicates.addresses);
-    size_t col_id_size = thrust::reduce(ptr, ptr + col_predicates.size); // calculate total number of vertices.
-    thrust::exclusive_scan(ptr, ptr + col_predicates.size, ptr);         // exclusive scan for calculating the scatter addresses.
+    CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b3, col_predicates.addresses, &col_id_size, (int)psize));                    // calculate total number of vertices.
+    CUDA_RUNTIME(cub::DeviceScan::ExclusiveSum(cub_storage, b4, col_predicates.addresses, col_predicates.addresses, (int)psize)); // exclusive scan for calculating the scatter addresses.
+    CUDA_RUNTIME(cudaDeviceSynchronize());
     if (col_id_size > 0)
     {
       uint local_gridDim = ceil((col_id_size * 1.0) / BLOCK_DIMX);
       CUDA_RUNTIME(cudaMalloc((void **)&col_id_csr, col_id_size * sizeof(int)));
       execKernel(augmentScatter, gridDim, BLOCK_DIMX, devID, false,
                  col_id_csr, col_predicates);
-      // exit(0);
       execKernel(reverseTraversal<data>, local_gridDim, BLOCK_DIMX, devID, false,
                  col_id_csr, row_data, col_data, col_id_size);
       CUDA_RUNTIME(cudaFree(col_id_csr));
@@ -403,10 +440,9 @@ private:
 
     execKernel(augmentPredicateConstruction, gridDim, BLOCK_DIMX, devID, false,
                row_predicates, row_data.is_visited);
-    ptr = thrust::device_ptr<long>(row_predicates.addresses);
-    size_t row_id_size = thrust::reduce(ptr, ptr + row_predicates.size); // calculate total number of vertices.
-    thrust::exclusive_scan(ptr, ptr + row_predicates.size, ptr);         // exclusive scan for calculating the scatter addresses.
-
+    CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b3, row_predicates.addresses, &row_id_size, (int)psize)); // calculate total number of vertices.
+    CUDA_RUNTIME(cub::DeviceScan::ExclusiveSum(cub_storage, b4, row_predicates.addresses, row_predicates.addresses, (int)psize));
+    CUDA_RUNTIME(cudaDeviceSynchronize());
     if (row_id_size > 0)
     {
       uint local_gridDim = ceil((row_id_size * 1.0) / BLOCK_DIMX);
@@ -427,5 +463,24 @@ private:
     counter++;
     if (counter > 5)
       exit(-1);
+  }
+
+  void computeInitialAssignments()
+  {
+    uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX); // Linear Grid dimension
+    CUDA_RUNTIME(cudaMemset(row_ass, -1, psize * sizeof(int)));
+    CUDA_RUNTIME(cudaMemset(col_ass, -1, psize * sizeof(int)));
+
+    int *d_row_lock, *d_col_lock;
+    CUDA_RUNTIME(cudaMalloc(&d_row_lock, psize * sizeof(int)));
+    CUDA_RUNTIME(cudaMalloc(&d_col_lock, psize * sizeof(int)));
+    CUDA_RUNTIME(cudaMemset(d_row_lock, 0, psize * sizeof(int)));
+    CUDA_RUNTIME(cudaMemset(d_col_lock, 0, psize * sizeof(int)));
+
+    execKernel(initial_assignments, gridDim, BLOCK_DIMX, devID, false,
+               slack, row_ass, col_ass, d_row_lock, d_col_lock);
+
+    CUDA_RUNTIME(cudaFree(d_row_lock));
+    CUDA_RUNTIME(cudaFree(d_col_lock));
   }
 };

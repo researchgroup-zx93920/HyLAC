@@ -8,6 +8,7 @@
 #include "helper_utils.cuh"
 #include "LinearAssignmentProblem.cuh"
 #include "cost_generator.h"
+#include "timer.h"
 #include <iomanip>
 
 int main(int argc, char **argv)
@@ -32,15 +33,22 @@ int main(int argc, char **argv)
 
 	cudaSafeCall(cudaSetDevice(devID), "Error initializing device");
 	// double *cost_matrix = new double[problemsize * problemsize];
-
+	double time;
+	Timer t;
 	double *cost_matrix = generate_cost<double>(problemsize, costrange);
+	time = t.elapsed_and_reset();
+	Log(info, "cost generation time %f s", time);
 
 	for (int repeatID = 0; repeatID < repetitions; repeatID++)
 	{
 
 		double start = omp_get_wtime();
 		double obj_val = 0;
+		t.reset();
 		LinearAssignmentProblem lpx(problemsize, stepcounts, 1);
+		time = t.elapsed_and_reset();
+		Log(info, "LAP object generation time %f s", time);
+
 		lpx.solve(cost_matrix, obj_val);
 		uint obj = (uint)obj_val;
 		double end = omp_get_wtime();

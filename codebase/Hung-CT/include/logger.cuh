@@ -103,13 +103,13 @@ void printDeviceMatrix(const data *array, size_t nrows, size_t ncols, std::strin
       cout << temp2[i] << ", ";
     }
     cout << temp2[ncols - 1] << endl;
-    for (size_t i = 0; i < ncols; i++)
-    {
-      if (temp2[i] >= (int)ncols)
-      {
-        cout << "Problem at row: " << i << " assignment: " << temp2[i] << endl;
-      }
-    }
+    // for (size_t i = 0; i < ncols; i++)
+    // {
+    //   if (temp2[i] >= (int)ncols)
+    //   {
+    //     cout << "Problem at row: " << i << " assignment: " << temp2[i] << endl;
+    //   }
+    // }
   }
   delete[] temp;
 }

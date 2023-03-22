@@ -6,11 +6,7 @@
 #include "device_utils.cuh"
 #include "structures.h"
 
-#include <thrust/scan.h>
-#include <thrust/reduce.h>
-#include <thrust/device_ptr.h>
-
-#include <type_traits>
+#include <type_traits> //for comparing typenames
 
 namespace tree
 {
@@ -85,21 +81,23 @@ __global__ void vertexScatterCSR(int *d_vertex_ids_csr, int *d_vertex_ids,
 }
 
 template <typename data = uint>
-__device__ void __traverse(data *d_costs, const double *row_duals, const double *col_duals,
+__device__ void __traverse(data *d_costs, double *row_duals, double *col_duals,
                            int *row_ass, int *col_ass, int *row_cover, int *col_cover,
                            int *d_row_parents, int *d_col_parents, int *d_row_visited,
                            int *d_col_visited, data *d_slacks,
-                           int *d_start_ptr, int *d_end_ptr, size_t colid)
+                           int *d_start_ptr, int *d_end_ptr, const size_t colid,
+                           bool *goto5_tree)
 {
   int *ptr1 = d_start_ptr;
+  // bool L_goto_5 = false;
   while (ptr1 != d_end_ptr)
   {
     int rowid = *ptr1;
     data slack;
-    if (std::is_same_v<data, uint> || std::is_same_v<data, int>)
-      slack = (data)(d_costs[rowid * SIZE + colid] - (int)(row_duals[rowid] + col_duals[colid]));
-    else
-      slack = d_costs[rowid * SIZE + colid] - (data)(row_duals[rowid] + col_duals[colid]);
+    // if (std::is_same_v<data, uint> || std::is_same_v<data, int>)
+    //   slack = (data)(d_costs[rowid * SIZE + colid] - (int)(row_duals[rowid] + col_duals[colid]));
+    // else
+    slack = d_costs[rowid * SIZE + colid] - (data)(row_duals[rowid] + col_duals[colid]);
     int nxt_rowid = col_ass[colid];
     if (rowid != nxt_rowid && col_cover[colid] == 0)
     {
@@ -126,7 +124,8 @@ __device__ void __traverse(data *d_costs, const double *row_duals, const double 
         else
         {
           d_col_visited[colid] = REVERSE;
-          goto_5 = true;
+          *goto5_tree = true;
+          // goto_5 = true;
         }
       }
     }
@@ -136,23 +135,37 @@ __device__ void __traverse(data *d_costs, const double *row_duals, const double 
 }
 
 template <typename data = uint>
-__global__ void coverAndExpand(int *vertices_csr2, const size_t csr2_size,
-                               data *d_costs, const double *row_duals, const double *col_duals,
-                               int *row_ass, int *col_ass, int *row_cover, int *col_cover,
-                               VertexData<data> row_data, VertexData<data> col_data)
+__global__ void coverAndExpand(
+    bool *goto5_tree,
+    int *vertices_csr2, const size_t csr2_size,
+    double *d_costs, double *row_duals, double *col_duals,
+    int *row_ass, int *col_ass, int *row_cover, int *col_cover,
+    VertexData<data> row_data, VertexData<data> col_data)
 {
   size_t id = blockIdx.x * blockDim.x + threadIdx.x;
   const size_t in_size = csr2_size;
   // Load values into local memory
   int *st_ptr = vertices_csr2;
   int *end_ptr = vertices_csr2 + in_size;
-  // if (threadIdx.x == 0)
-  //   printf("start: %p, End: %p\n", st_ptr, end_ptr);
+
+  // __shared__ S_goto_5;
+  // bool L_goto_5 = false;
+  // printf("start: %p, End: %p\n", st_ptr, end_ptr);
   if (id < SIZE)
   {
     __traverse(d_costs, row_duals, col_duals,
                row_ass, col_ass, row_cover, col_cover,
                row_data.parents, col_data.parents, row_data.is_visited, col_data.is_visited,
-               col_data.slack, st_ptr, end_ptr, id);
+               col_data.slack, st_ptr, end_ptr, id, goto5_tree);
   }
+  // __syncthreads();
+  // typedef cub::BlockReduce<bool, BLOCK_DIMX> BlockReduce;
+  // __shared__ typename BlockReduce::TempStorage temp_storage;
+  // __syncthreads();
+  // L_goto_5 = BlockReduce(temp_storage).Sum(L_goto_5);
+  // __syncthreads();
+  // if (threadIdx.x == 0)
+  // {
+  //   atomicOr((int *)&goto_5, (int)L_goto_5);
+  // }
 }

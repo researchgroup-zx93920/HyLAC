@@ -21,9 +21,9 @@ int main(int argc, char **argv)
   int size = config.size;
   int dev = config.deviceId;
 
-  typedef uint data;
+  // typedef uint data;
   // typedef float data;
-  // typedef double data;
+  typedef double data;
 
   double time;
   Timer t;

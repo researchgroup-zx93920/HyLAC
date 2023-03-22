@@ -327,7 +327,13 @@ int LinearAssignmentProblem::hungarianStep2(bool count_time)
 	Log(debug, "#matches %d", cover_count);
 
 	if (initial_assignment_count == 0)
+	{
 		initial_assignment_count = cover_count;
+		Log(info, "#matches %d", initial_assignment_count);
+		size_t total = 0, free = 0;
+		cudaMemGetInfo(&free, &total);
+		Log(warn, "Occupied %f GB", ((total - free) * 1.0) / (1024 * 1024 * 1024));
+	}
 
 	int next = (cover_count == N) ? 6 : 3;
 

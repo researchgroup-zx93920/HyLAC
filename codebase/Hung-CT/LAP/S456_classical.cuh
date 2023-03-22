@@ -5,18 +5,18 @@
 #include "utils.cuh"
 #include "device_utils.cuh"
 
-__global__ void S4_init(int *col_prime, int *row_green)
+__global__ void S4_init(int *col_visited, int *row_visited)
 {
   size_t tid = threadIdx.x;
   size_t i = tid + (size_t)blockIdx.x * blockDim.x;
   if (i < SIZE)
   {
-    col_prime[i] = -1;
-    row_green[i] = -1;
+    col_visited[i] = -1;
+    row_visited[i] = -1;
   }
 }
 
-__global__ void S4(int *row_cover, int *col_cover, int *col_prime,
+__global__ void S4(int *row_cover, int *col_cover, int *col_visited,
                    const size_t *zeros, const size_t *zeros_size_b, const int *col_ass)
 {
   __shared__ bool s_found;
@@ -50,7 +50,7 @@ __global__ void S4(int *row_cover, int *col_cover, int *col_prime,
       {
         s_found = true; // find uncovered zero
         s_repeat_kernel = true;
-        col_prime[l] = c; // prime the uncovered zero
+        col_visited[l] = c; // prime the uncovered zero
 
         if (c1 >= 0)
         {
@@ -72,34 +72,34 @@ __global__ void S4(int *row_cover, int *col_cover, int *col_prime,
     goto_5 = true;
 }
 
-__global__ void S5a(int *col_prime, int *row_green, const int *row_ass, const int *col_ass)
+__global__ void S5a(int *col_visited, int *row_visited, const int *row_ass, const int *col_ass)
 {
   size_t i = (size_t)blockDim.x * blockIdx.x + (size_t)threadIdx.x;
   if (i < SIZE)
   {
     int r_Z0, c_Z0;
 
-    c_Z0 = col_prime[i];
+    c_Z0 = col_visited[i];
     if (c_Z0 >= 0 && col_ass[i] < 0) // if primed and not covered
     {
-      row_green[c_Z0] = i; // mark the column as green
+      row_visited[c_Z0] = i; // mark the column as visited
 
       while ((r_Z0 = row_ass[c_Z0]) >= 0)
       {
-        c_Z0 = col_prime[r_Z0];
-        row_green[c_Z0] = r_Z0;
+        c_Z0 = col_visited[r_Z0];
+        row_visited[c_Z0] = r_Z0;
       }
     }
   }
 }
 
-__global__ void S5b(int *row_green, int *row_ass, int *col_ass)
+__global__ void S5b(int *row_visited, int *row_ass, int *col_ass)
 {
   size_t j = (size_t)blockDim.x * blockIdx.x + (size_t)threadIdx.x;
   if (j < SIZE)
   {
     int r_Z0, c_Z0, c_Z2;
-    r_Z0 = row_green[j];
+    r_Z0 = row_visited[j];
     if (r_Z0 >= 0 && row_ass[j] < 0)
     {
 
@@ -110,9 +110,9 @@ __global__ void S5b(int *row_green, int *row_ass, int *col_ass)
 
       while (c_Z2 >= 0)
       {
-        r_Z0 = row_green[c_Z2]; // row of Z2
-        c_Z0 = c_Z2;            // col of Z2
-        c_Z2 = col_ass[r_Z0];   // col of Z4
+        r_Z0 = row_visited[c_Z2]; // row of Z2
+        c_Z0 = c_Z2;              // col of Z2
+        c_Z2 = col_ass[r_Z0];     // col of Z4
 
         // star Z2
         col_ass[r_Z0] = c_Z0;

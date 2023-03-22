@@ -14,6 +14,7 @@ struct Predicates
   long size;
   bool *predicates;
   long *addresses;
+  long *out_addresses;
 };
 
 #define DORMANT 0
@@ -23,3 +24,10 @@ struct Predicates
 #define AUGMENT 4
 #define MODIFIED 5
 // #define EPSILON 0.00001
+
+enum algEnum
+{
+  CLASSICAL,
+  TREE,
+  BOTH
+};

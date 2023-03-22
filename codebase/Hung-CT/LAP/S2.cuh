@@ -4,8 +4,6 @@
 
 #include "utils.cuh"
 #include "device_utils.cuh"
-#include <thrust/reduce.h>
-#include <thrust/execution_policy.h>
 
 template <typename data>
 __device__ bool near_zero(data val)
@@ -32,7 +30,6 @@ fundef compress_matrix(size_t *zeros, size_t *zeros_size_b, data *slack)
   {
     if (near_zero(slack[i]))
     {
-
       size_t b = i >> L2DBS;
       size_t i0 = i & ~((size_t)DBS - 1);
 
@@ -86,4 +83,28 @@ __global__ void step2(const size_t *zeros, const size_t *zeros_size_b,
   } while (repeat);
   if (s_repeat_kernel)
     repeat_kernel = true;
+}
+
+template <typename data = uint>
+__global__ void initial_assignments(data *slack, int *row_ass, int *col_ass, int *row_lock, int *col_lock)
+{
+  int colid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (colid < SIZE)
+  {
+    for (int rowid = 0; rowid < SIZE; rowid++)
+    {
+      if (col_lock[colid] == 1)
+        break;
+      data cost = slack[rowid * SIZE + colid];
+      if (near_zero(cost))
+      {
+        if (atomicCAS(&row_lock[rowid], 0, 1) == 0)
+        {
+          row_ass[rowid] = colid;
+          col_ass[colid] = rowid;
+          col_lock[colid] = 1;
+        }
+      }
+    }
+  }
 }
