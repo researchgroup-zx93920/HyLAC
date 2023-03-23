@@ -93,11 +93,11 @@ __device__ void __traverse(data *d_costs, double *row_duals, double *col_duals,
   while (ptr1 != d_end_ptr)
   {
     int rowid = *ptr1;
-    data slack;
+    // data slack;
     // if (std::is_same_v<data, uint> || std::is_same_v<data, int>)
     //   slack = (data)(d_costs[rowid * SIZE + colid] - (int)(row_duals[rowid] + col_duals[colid]));
     // else
-    slack = d_costs[rowid * SIZE + colid] - (data)(row_duals[rowid] + col_duals[colid]);
+    double slack = d_costs[rowid * SIZE + colid] - row_duals[rowid] - col_duals[colid];
     int nxt_rowid = col_ass[colid];
     if (rowid != nxt_rowid && col_cover[colid] == 0)
     {
@@ -146,11 +146,8 @@ __global__ void coverAndExpand(
   const size_t in_size = csr2_size;
   // Load values into local memory
   int *st_ptr = vertices_csr2;
-  int *end_ptr = vertices_csr2 + in_size;
+  int *end_ptr = &vertices_csr2[in_size];
 
-  // __shared__ S_goto_5;
-  // bool L_goto_5 = false;
-  // printf("start: %p, End: %p\n", st_ptr, end_ptr);
   if (id < SIZE)
   {
     __traverse(d_costs, row_duals, col_duals,
@@ -158,14 +155,4 @@ __global__ void coverAndExpand(
                row_data.parents, col_data.parents, row_data.is_visited, col_data.is_visited,
                col_data.slack, st_ptr, end_ptr, id, goto5_tree);
   }
-  // __syncthreads();
-  // typedef cub::BlockReduce<bool, BLOCK_DIMX> BlockReduce;
-  // __shared__ typename BlockReduce::TempStorage temp_storage;
-  // __syncthreads();
-  // L_goto_5 = BlockReduce(temp_storage).Sum(L_goto_5);
-  // __syncthreads();
-  // if (threadIdx.x == 0)
-  // {
-  //   atomicOr((int *)&goto_5, (int)L_goto_5);
-  // }
 }

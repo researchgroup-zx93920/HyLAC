@@ -129,18 +129,18 @@ private:
 
     CUDA_RUNTIME(cudaMalloc((void **)&row_duals, N * sizeof(double)));
     CUDA_RUNTIME(cudaMalloc((void **)&col_duals, N * sizeof(double)));
-    CUDA_RUNTIME(cudaMalloc((void **)&slack, N2 * sizeof(data)));
+    // CUDA_RUNTIME(cudaMalloc((void **)&slack, N2 * sizeof(data)));
 
-    CUDA_RUNTIME(cudaMalloc((void **)&zeros, N2 * sizeof(size_t)));
-    CUDA_RUNTIME(cudaMalloc((void **)&zeros_size_b, nb4 * sizeof(size_t)));
+    // CUDA_RUNTIME(cudaMalloc((void **)&zeros, N2 * sizeof(size_t)));
+    // CUDA_RUNTIME(cudaMalloc((void **)&zeros_size_b, nb4 * sizeof(size_t)));
 
     CUDA_RUNTIME(cudaMalloc((void **)&row_ass, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&col_ass, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&row_cover, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&col_cover, N * sizeof(int)));
 
-    CUDA_RUNTIME(cudaMalloc((void **)&min_vect, nbr * sizeof(data)));
-    CUDA_RUNTIME(cudaMalloc((void **)&min_mat, 1 * sizeof(data)));
+    // CUDA_RUNTIME(cudaMalloc((void **)&min_vect, nbr * sizeof(data)));
+    // CUDA_RUNTIME(cudaMalloc((void **)&min_mat, 1 * sizeof(data)));
 
     CUDA_RUNTIME(cudaMalloc((void **)&row_visited, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&col_visited, N * sizeof(int)));
@@ -199,9 +199,9 @@ private:
     // column reduce
     {
       execKernel(col_min, psize, BLOCK_DIMX, devID, false,
-                 slack, col_duals); // uncoalesced
-      execKernel(col_sub, psize, BLOCK_DIMX, devID, false,
-                 slack, col_duals);
+                 d_costs, row_duals, col_duals); // uncoalesced
+      // execKernel(col_sub, psize, BLOCK_DIMX, devID, false,
+      //            slack, col_duals);
     }
   }
   void S2() // Compress and cover zeros (makes the zeros matrix)
@@ -287,11 +287,11 @@ private:
 
   void CtoT()
   {
-    CUDA_RUNTIME(cudaFree(zeros));
-    CUDA_RUNTIME(cudaFree(zeros_size_b));
-    CUDA_RUNTIME(cudaFree(min_vect));
-    CUDA_RUNTIME(cudaFree(min_mat));
-    CUDA_RUNTIME(cudaFree(slack));
+    // CUDA_RUNTIME(cudaFree(zeros));
+    // CUDA_RUNTIME(cudaFree(zeros_size_b));
+    // CUDA_RUNTIME(cudaFree(min_vect));
+    // CUDA_RUNTIME(cudaFree(min_mat));
+    // CUDA_RUNTIME(cudaFree(slack));
 
     const size_t N = psize;
     CUDA_RUNTIME(cudaMalloc((void **)&row_data.is_visited, N * sizeof(int)));
@@ -465,6 +465,12 @@ private:
       exit(-1);
   }
 
+  void initialReduction()
+  {
+    uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX); // Linear Grid dimension
+    execKernel(row_reduction, gridDim, BLOCK_DIMX, devID, false,
+               d_costs, row_duals);
+  }
   void computeInitialAssignments()
   {
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX); // Linear Grid dimension
@@ -478,7 +484,8 @@ private:
     CUDA_RUNTIME(cudaMemset(d_col_lock, 0, psize * sizeof(int)));
 
     execKernel(initial_assignments, gridDim, BLOCK_DIMX, devID, false,
-               slack, row_ass, col_ass, d_row_lock, d_col_lock);
+               d_costs, row_ass, col_ass, d_row_lock, d_col_lock,
+               row_duals, col_duals);
 
     CUDA_RUNTIME(cudaFree(d_row_lock));
     CUDA_RUNTIME(cudaFree(d_col_lock));

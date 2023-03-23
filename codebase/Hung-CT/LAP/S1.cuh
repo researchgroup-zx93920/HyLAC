@@ -22,20 +22,20 @@ fundef row_reduce(const data *cost, double *row_min, data *slack)
     row_min[blockIdx.x] = (double)thread_min;
   __syncthreads();
 
-  for (size_t i = tid; i < SIZE; i += blockDim.x)
-  {
-    slack[i + rowID] = cost[i + rowID] - (data)row_min[blockIdx.x];
-  }
+  // for (size_t i = tid; i < SIZE; i += blockDim.x)
+  // {
+  //   slack[i + rowID] = cost[i + rowID] - (data)row_min[blockIdx.x];
+  // }
 }
 
-fundef col_min(const data *slack, double *col_min)
+fundef col_min(const data *slack, double *row_min, double *col_min)
 {
   size_t tid = (size_t)threadIdx.x;
   const size_t colID = blockIdx.x;
   data thread_min = (data)MAX_DATA;
   for (size_t i = tid; i < SIZE; i += blockDim.x)
   {
-    thread_min = min(thread_min, slack[i * SIZE + colID]);
+    thread_min = min(thread_min, slack[i * SIZE + colID] - row_min[i]);
   }
   __syncthreads();
   typedef cub::BlockReduce<data, BLOCK_DIMX> BR;
@@ -55,3 +55,10 @@ fundef col_sub(data *slack, double *col_min)
     slack[i + rowID] = slack[i + rowID] - (data)col_min[i];
   }
 }
+
+// // Tree code initialization
+// fundef row_reduction(const data *cost, int *row_duals)
+// {
+//   double min = INF;
+
+// }

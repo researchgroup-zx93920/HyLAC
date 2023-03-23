@@ -83,7 +83,6 @@ __device__ void __traverse(Matrix d_costs, Vertices d_vertices, bool *d_flag,
 
 			if (slack < d_slacks[colid])
 			{
-
 				d_slacks[colid] = slack;
 				d_col_parents[colid] = rowid;
 			}

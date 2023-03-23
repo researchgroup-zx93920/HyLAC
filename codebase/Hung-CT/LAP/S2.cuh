@@ -86,7 +86,8 @@ __global__ void step2(const size_t *zeros, const size_t *zeros_size_b,
 }
 
 template <typename data = uint>
-__global__ void initial_assignments(data *slack, int *row_ass, int *col_ass, int *row_lock, int *col_lock)
+__global__ void initial_assignments(data *costs, int *row_ass, int *col_ass, int *row_lock, int *col_lock,
+                                    double *row_dual, double *col_dual)
 {
   int colid = blockIdx.x * blockDim.x + threadIdx.x;
   if (colid < SIZE)
@@ -95,7 +96,7 @@ __global__ void initial_assignments(data *slack, int *row_ass, int *col_ass, int
     {
       if (col_lock[colid] == 1)
         break;
-      data cost = slack[rowid * SIZE + colid];
+      data cost = costs[rowid * SIZE + colid] - row_dual[rowid] - col_dual[colid];
       if (near_zero(cost))
       {
         if (atomicCAS(&row_lock[rowid], 0, 1) == 0)
