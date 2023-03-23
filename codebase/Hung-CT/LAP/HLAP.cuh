@@ -8,6 +8,10 @@
 #include "S6_tree.cuh"
 #include "structures.h"
 
+#include <thrust/scan.h>
+#include <thrust/reduce.h>
+#include <thrust/device_ptr.h>
+
 template <typename data>
 class HLAP
 {
@@ -335,7 +339,6 @@ private:
       execKernel(tree::S4_init, gridDim, BLOCK_DIMX, devID, false, vertices_csr1);
 
       int *vertices_csr2;
-      // long csr2_size;
       do
       {
         // compact Row vertices
@@ -345,8 +348,13 @@ private:
         execKernel(vertexPredicateConstructionCSR, gridDim, BLOCK_DIMX, devID, false,
                    vertex_predicates, vertices_csr1, row_data.is_visited);
 
-        CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b3, vertex_predicates.addresses, &csr2_size, (int)psize));
-        CUDA_RUNTIME(cub::DeviceScan::ExclusiveSum(cub_storage, b4, vertex_predicates.addresses, vertex_predicates.addresses, (int)psize));
+        // CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b3, vertex_predicates.addresses, &csr2_size, (int)psize));
+        // CUDA_RUNTIME(cub::DeviceScan::ExclusiveSum(cub_storage, b4, vertex_predicates.addresses, vertex_predicates.addresses, (int)psize));
+        // CUDA_RUNTIME(cudaDeviceSynchronize());
+
+        thrust::device_ptr<long> ptr(vertex_predicates.addresses);
+        csr2_size = thrust::reduce(ptr, ptr + psize);  // calculate total number of vertices.
+        thrust::exclusive_scan(ptr, ptr + psize, ptr); // exclusive scan for calculating the scatter addresses.
         CUDA_RUNTIME(cudaDeviceSynchronize());
 
         if (csr2_size > 0)
@@ -413,9 +421,15 @@ private:
     execKernel(augmentPredicateConstruction, gridDim, BLOCK_DIMX, devID, false,
                col_predicates, col_data.is_visited);
 
-    CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b3, col_predicates.addresses, &col_id_size, (int)psize));                    // calculate total number of vertices.
-    CUDA_RUNTIME(cub::DeviceScan::ExclusiveSum(cub_storage, b4, col_predicates.addresses, col_predicates.addresses, (int)psize)); // exclusive scan for calculating the scatter addresses.
-    CUDA_RUNTIME(cudaDeviceSynchronize());
+    // CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b3, col_predicates.addresses, &col_id_size, (int)psize));                    // calculate total number of vertices.
+    // CUDA_RUNTIME(cub::DeviceScan::ExclusiveSum(cub_storage, b4, col_predicates.addresses, col_predicates.addresses, (int)psize)); // exclusive scan for calculating the scatter addresses.
+    // CUDA_RUNTIME(cudaDeviceSynchronize());
+    {
+      thrust::device_ptr<long> ptr(col_predicates.addresses);
+      col_id_size = thrust::reduce(ptr, ptr + col_predicates.size); // calculate total number of vertices.
+      thrust::exclusive_scan(ptr, ptr + col_predicates.size, ptr);  // exclusive scan for calculating the scatter addresses.
+      CUDA_RUNTIME(cudaDeviceSynchronize());
+    }
     if (col_id_size > 0)
     {
       uint local_gridDim = ceil((col_id_size * 1.0) / BLOCK_DIMX);
@@ -440,9 +454,15 @@ private:
 
     execKernel(augmentPredicateConstruction, gridDim, BLOCK_DIMX, devID, false,
                row_predicates, row_data.is_visited);
-    CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b3, row_predicates.addresses, &row_id_size, (int)psize)); // calculate total number of vertices.
-    CUDA_RUNTIME(cub::DeviceScan::ExclusiveSum(cub_storage, b4, row_predicates.addresses, row_predicates.addresses, (int)psize));
-    CUDA_RUNTIME(cudaDeviceSynchronize());
+    // CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b3, row_predicates.addresses, &row_id_size, (int)psize)); // calculate total number of vertices.
+    // CUDA_RUNTIME(cub::DeviceScan::ExclusiveSum(cub_storage, b4, row_predicates.addresses, row_predicates.addresses, (int)psize));
+    // CUDA_RUNTIME(cudaDeviceSynchronize());
+    {
+      thrust::device_ptr<long> ptr(row_predicates.addresses);
+      row_id_size = thrust::reduce(ptr, ptr + row_predicates.size); // calculate total number of vertices.
+      thrust::exclusive_scan(ptr, ptr + row_predicates.size, ptr);  // exclusive scan for calculating the scatter addresses.
+      CUDA_RUNTIME(cudaDeviceSynchronize());
+    }
     if (row_id_size > 0)
     {
       uint local_gridDim = ceil((row_id_size * 1.0) / BLOCK_DIMX);
@@ -458,7 +478,8 @@ private:
     // return; -- null return
   }
 
-  void interrupt()
+  void
+  interrupt()
   {
     counter++;
     if (counter > 5)
