@@ -63,3 +63,40 @@ void computeInitialAssignments(Matrix *d_costs, Vertices *d_vertices_dev, size_t
 	cudaSafeCall(cudaFree(d_row_lock), "Error in cudaFree d_row_lock");
 	cudaSafeCall(cudaFree(d_col_lock), "Error in cudaFree d_col_lock");
 }
+
+void readAssignmentsfromFile(Matrix *d_costs, Vertices *d_vertices_dev, size_t N, unsigned int devid)
+{
+	int *row = new int[N];
+	int *col = new int[N];
+	std::string filename = "/home/samiran2/LAP-Project/cuLAP/codebase/Hung-Tree/init_row_ass" + std::to_string((int)N) + ".txt";
+	std::ifstream myfile(filename);
+	for (int i = 0; i < N; i++)
+	{
+		row[i] = -1;
+		col[i] = -1;
+	}
+	if (myfile.is_open())
+	{
+		for (int i = 0; i < N; i++)
+		{
+			int elem;
+			myfile >> elem;
+			// std::cout << elem << ", ";
+			if (elem != -1)
+			{
+				row[i] = elem;
+				col[elem] = i;
+			}
+		}
+		myfile.close();
+	}
+	else
+	{
+		Log(debug, "cannot open file");
+		exit(-1);
+	}
+	cudaMemcpy(d_vertices_dev[devid].row_assignments, row, N * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_vertices_dev[devid].col_assignments, col, N * sizeof(int), cudaMemcpyHostToDevice);
+	delete[] row;
+	delete[] col;
+}

@@ -246,6 +246,18 @@ void printDebugArray(int *d_array, int size, const char *name, unsigned int devi
 	delete[] h_array;
 }
 
+void printDebugArraytoFile(int *d_array, int size, const char *filename, unsigned int devid)
+{
+	int *h_array = new int[size];
+	std::ofstream myfile(filename);
+	cudaMemcpy(h_array, d_array, size * sizeof(int), cudaMemcpyDeviceToHost);
+	for (int i = 0; i < size; i++)
+	{
+		myfile << h_array[i] << std::endl;
+	}
+	delete[] h_array;
+}
+
 void printDebugArray(long *d_array, int size, const char *name, unsigned int devid)
 {
 

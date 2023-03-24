@@ -12,6 +12,12 @@
 #include <thrust/reduce.h>
 #include <thrust/device_ptr.h>
 
+#include <fstream>
+#include <vector>
+
+double cover_time = 0;
+std::vector<double> time_profile;
+size_t cover_kernel_count = 0;
 template <typename data>
 class HLAP
 {
@@ -90,7 +96,8 @@ public:
 
     S1();
     // S2();
-    computeInitialAssignments();
+    // computeInitialAssignments();
+    readAssfromFile();
 
     nmatch_cur = 0, nmatch_old = 0;
     CUDA_RUNTIME(cudaDeviceSynchronize());
@@ -110,6 +117,7 @@ public:
           first = false;
           Log(info, "Switched to Tree after %d matches", nmatch_cur);
         }
+        // Log(debug, "match: %d, cover-count: %lu, time: %f", nmatch_cur, cover_kernel_count, cover_time);
         S456_tree();
       }
       S3();
@@ -122,6 +130,17 @@ public:
     execKernel(get_obj, gridDim, BLOCK_DIMX, devID, false,
                row_ass, d_costs, objective);
     printf("Obj val: %u\n", (uint)*objective);
+    Log(info, "Cover and Expand Kernel time %f s", cover_time);
+    Log(info, "cover Kernel count: %lu ", cover_kernel_count);
+
+    std::ofstream myfile;
+    myfile.open("time_profile.txt");
+    for (size_t i = 0; i < time_profile.size(); i++)
+    {
+      myfile << time_profile[i];
+      myfile << "\n";
+    }
+    myfile.close();
   }
 
 private:
@@ -191,7 +210,6 @@ private:
     CUDA_RUNTIME(cudaFree(row_ass));
     CUDA_RUNTIME(cudaFree(col_ass));
     CUDA_RUNTIME(cudaFree(goto5_tree));
-    CUDA_RUNTIME(cudaDeviceReset());
   }
   void S1() // Row and column reduction
   {
@@ -341,6 +359,8 @@ private:
       int *vertices_csr2;
       do
       {
+        // execKernel(tree::S4_init, gridDim, BLOCK_DIMX, devID, false, vertices_csr1);
+
         // compact Row vertices
         CUDA_RUNTIME(cudaMemset(vertex_predicates.predicates, false, psize * sizeof(bool)));
         CUDA_RUNTIME(cudaMemset(vertex_predicates.addresses, 0, psize * sizeof(long)));
@@ -368,15 +388,20 @@ private:
 
         // Traverse the frontier, cover zeros and expand.
         // -- Most time consuming function
+        Timer t;
         execKernel((coverAndExpand<data>), gridDim, BLOCK_DIMX, devID, false,
                    goto5_tree,
                    vertices_csr2, csr2_size,
                    d_costs, row_duals_tree, col_duals_tree,
                    row_ass, col_ass, row_cover, col_cover,
                    row_data, col_data);
+        double elapsed = t.elapsed();
+        cover_time += elapsed;
+        time_profile.push_back(elapsed);
+        cover_kernel_count += 1;
 
         CUDA_RUNTIME(cudaFree(vertices_csr2));
-      } while (!*goto5_tree);
+      } while (true); //--need not check for goto5_tree
       if (*goto5_tree)
         break;
 
@@ -396,6 +421,7 @@ private:
         }
       }
       theta /= 2;
+      // Log(debug, "theta: %f", theta);
       execKernel((tree::dualUpdate<data>), gridDim, BLOCK_DIMX, devID, false,
                  theta, row_duals_tree, col_duals_tree, col_data.slack, row_cover, col_cover,
                  col_data.parents, row_data.is_visited);
@@ -510,5 +536,42 @@ private:
 
     CUDA_RUNTIME(cudaFree(d_row_lock));
     CUDA_RUNTIME(cudaFree(d_col_lock));
+  }
+
+  void readAssfromFile()
+  {
+    int *row = new int[psize];
+    int *col = new int[psize];
+    std::string filename = "/home/samiran2/LAP-Project/cuLAP/codebase/Hung-Tree/init_row_ass" + std::to_string((int)psize) + ".txt";
+    std::ifstream myfile(filename);
+    for (int i = 0; i < psize; i++)
+    {
+      row[i] = -1;
+      col[i] = -1;
+    }
+    if (myfile.is_open())
+    {
+      for (int i = 0; i < psize; i++)
+      {
+        int elem;
+        myfile >> elem;
+        // std::cout << elem << ", ";
+        if (elem != -1)
+        {
+          row[i] = elem;
+          col[elem] = i;
+        }
+      }
+      myfile.close();
+    }
+    else
+    {
+      Log(debug, "cannot open file");
+      exit(-1);
+    }
+    CUDA_RUNTIME(cudaMemcpy(row_ass, row, psize * sizeof(int), cudaMemcpyHostToDevice));
+    CUDA_RUNTIME(cudaMemcpy(col_ass, col, psize * sizeof(int), cudaMemcpyHostToDevice));
+    delete[] row;
+    delete[] col;
   }
 };

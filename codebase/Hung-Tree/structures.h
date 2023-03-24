@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 
 struct Array
 {
@@ -46,3 +47,7 @@ struct VertexData
 
 int devID = 0;
 int nmatches = 0;
+
+double cover_time = 0;
+size_t cover_kernel_count = 0;
+std::vector<double> time_profile;

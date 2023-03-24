@@ -9,6 +9,7 @@
 #include "structures.h"
 #include "variables.h"
 #include "helper_utils.cuh"
+#include "timer.h"
 
 __global__ void kernel_step3_init(int *d_vertex_ids, int row_count)
 {
@@ -115,7 +116,7 @@ __device__ void __traverse(Matrix d_costs, Vertices d_vertices, bool *d_flag,
 
 // Kernel for finding the minimum zero cover.
 __global__ void kernel_coverAndExpand(bool *d_flag, Array d_vertices_csr_in, Matrix d_costs,
-																			Vertices d_vertices, VertexData d_row_data, VertexData d_col_data, int N)
+																			Vertices d_vertices, VertexData d_row_data, VertexData d_col_data, size_t N)
 {
 	size_t id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -184,10 +185,14 @@ void coverZeroAndExpand(Matrix *d_costs_dev, Vertices *d_vertices_dev, VertexDat
 	dim3 threads_per_block;
 
 	calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, N);
-
+	Timer t;
 	execKernel(kernel_coverAndExpand, blocks_per_grid, threads_per_block,
 						 goto_4, d_vertices_csr_in, d_costs_dev[devid],
 						 d_vertices_dev[devid], d_row_data_dev[devid], d_col_data_dev[devid], N);
+	time_profile.push_back(t.elapsed());
+	cover_time += time_profile.back();
+
+	cover_kernel_count += 1;
 }
 
 // Function for executing recursive zero cover. Returns the next step (Step 4 or Step 5) depending on the presence of uncovered zeros.

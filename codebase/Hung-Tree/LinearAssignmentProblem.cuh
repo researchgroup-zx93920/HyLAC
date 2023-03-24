@@ -243,7 +243,16 @@ int LinearAssignmentProblem::solve(double *_cost_matrix, double &_obj_val)
 	finalizeDev(0);
 
 	_obj_val = obj_val;
-
+	Log(info, "cover and Expand Kernel time: %f s", cover_time);
+	Log(info, "cover Kernel count: %lu ", cover_kernel_count);
+	std::ofstream myfile;
+	myfile.open("time_profile_base.txt");
+	for (size_t i = 0; i < time_profile.size(); i++)
+	{
+		myfile << time_profile[i];
+		myfile << "\n";
+	}
+	myfile.close();
 	return 0;
 }
 
@@ -277,7 +286,8 @@ int LinearAssignmentProblem::hungarianStep1(bool count_time)
 
 	double start = omp_get_wtime();
 
-	computeInitialAssignments(d_costs_dev, d_vertices_dev, N, 0);
+	// computeInitialAssignments(d_costs_dev, d_vertices_dev, N, 0);
+	readAssignmentsfromFile(d_costs_dev, d_vertices_dev, N, 0);
 
 	double mid = omp_get_wtime();
 
@@ -323,6 +333,7 @@ int LinearAssignmentProblem::hungarianStep2(bool count_time)
 	initializeStep2(h_vertices, d_vertices_dev, d_row_data_dev, d_col_data_dev, N, 0);
 
 	int cover_count = computeRowCovers(d_vertices_dev, N, 0);
+
 	nmatches = cover_count;
 	Log(debug, "#matches %d", cover_count);
 
@@ -333,7 +344,10 @@ int LinearAssignmentProblem::hungarianStep2(bool count_time)
 		size_t total = 0, free = 0;
 		cudaMemGetInfo(&free, &total);
 		Log(warn, "Occupied %f GB", ((total - free) * 1.0) / (1024 * 1024 * 1024));
+		std::string filename = "init_row_ass" + std::to_string(N) + ".txt";
+		printDebugArraytoFile(d_vertices_dev[devID].row_assignments, N, filename.c_str(), devID);
 	}
+	Log(info, "match: %d, cover-count: %lu, time: %f", cover_count, cover_kernel_count, cover_time);
 
 	int next = (cover_count == N) ? 6 : 3;
 
