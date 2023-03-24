@@ -85,8 +85,7 @@ __device__ void __traverse(data *d_costs, double *row_duals, double *col_duals,
                            int *row_ass, int *col_ass, int *row_cover, int *col_cover,
                            int *d_row_parents, int *d_col_parents, int *d_row_visited,
                            int *d_col_visited, data *d_slacks,
-                           int *d_start_ptr, int *d_end_ptr, const size_t colid,
-                           bool *goto5_tree)
+                           int *d_start_ptr, int *d_end_ptr, const size_t colid)
 {
   int *ptr1 = d_start_ptr;
   // bool L_goto_5 = false;
@@ -124,7 +123,7 @@ __device__ void __traverse(data *d_costs, double *row_duals, double *col_duals,
         else
         {
           d_col_visited[colid] = REVERSE;
-          *goto5_tree = true;
+          goto_5 = true;
           // goto_5 = true;
         }
       }
@@ -136,7 +135,6 @@ __device__ void __traverse(data *d_costs, double *row_duals, double *col_duals,
 
 template <typename data = uint>
 __global__ void coverAndExpand(
-    bool *goto5_tree,
     int *vertices_csr2, const size_t csr2_size,
     double *d_costs, double *row_duals, double *col_duals,
     int *row_ass, int *col_ass, int *row_cover, int *col_cover,
@@ -156,7 +154,7 @@ __global__ void coverAndExpand(
     __traverse(d_costs, row_duals, col_duals,
                row_ass, col_ass, row_cover, col_cover,
                row_data.parents, col_data.parents, row_data.is_visited, col_data.is_visited,
-               col_data.slack, st_ptr, end_ptr, id, goto5_tree);
+               col_data.slack, st_ptr, end_ptr, id);
   }
   // __syncthreads();
   // typedef cub::BlockReduce<bool, BLOCK_DIMX> BlockReduce;

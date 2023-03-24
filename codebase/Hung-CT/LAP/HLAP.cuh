@@ -37,8 +37,6 @@ private:
   Predicates vertex_predicates;
   double *row_duals_tree, *col_duals_tree;
 
-  bool *goto5_tree;
-
   size_t b1 = 0, b2 = 0, b3 = 0, b4 = 0;
 
   int counter;
@@ -146,7 +144,6 @@ private:
     CUDA_RUNTIME(cudaMalloc((void **)&col_visited, N * sizeof(int)));
 
     CUDA_RUNTIME(cudaMallocManaged((void **)&objective, 1 * sizeof(data)));
-    CUDA_RUNTIME(cudaMallocManaged((void **)&goto5_tree, 1 * sizeof(bool)));
   }
   void DeAllocate(algEnum alg = CLASSICAL)
   {
@@ -186,7 +183,7 @@ private:
 
     CUDA_RUNTIME(cudaFree(row_ass));
     CUDA_RUNTIME(cudaFree(col_ass));
-    CUDA_RUNTIME(cudaFree(goto5_tree));
+
     CUDA_RUNTIME(cudaDeviceReset());
   }
   void S1() // Row and column reduction
@@ -321,7 +318,8 @@ private:
   }
   void S456_tree() // Tree Version
   {
-    *goto5_tree = false;
+
+    goto_5 = false;
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX); // Linear Grid dimension
 
     execKernel((tree::Initialization<data>), gridDim, BLOCK_DIMX, devID, false,
@@ -336,7 +334,7 @@ private:
 
       int *vertices_csr2;
       // long csr2_size;
-      do
+      while (true)
       {
         // compact Row vertices
         CUDA_RUNTIME(cudaMemset(vertex_predicates.predicates, false, psize * sizeof(bool)));
@@ -361,15 +359,14 @@ private:
         // Traverse the frontier, cover zeros and expand.
         // -- Most time consuming function
         execKernel((coverAndExpand<data>), gridDim, BLOCK_DIMX, devID, false,
-                   goto5_tree,
                    vertices_csr2, csr2_size,
                    d_costs, row_duals_tree, col_duals_tree,
                    row_ass, col_ass, row_cover, col_cover,
                    row_data, col_data);
 
         CUDA_RUNTIME(cudaFree(vertices_csr2));
-      } while (!*goto5_tree);
-      if (*goto5_tree)
+      }
+      if (goto_5)
         break;
 
       // S6 Update dual solution --done on host
