@@ -542,7 +542,8 @@ private:
   {
     int *row = new int[psize];
     int *col = new int[psize];
-    std::string filename = "/home/samiran2/LAP-Project/cuLAP/codebase/Hung-Tree/init_row_ass" + std::to_string((int)psize) + ".txt";
+    std::string scratchdir = "/home/samiran2/LAP-Project/cuLAP/Scratch/initial_zero_covers/";
+    std::string filename = scratchdir + "init_row_ass" + std::to_string((int)psize) + ".txt";
     std::ifstream myfile(filename);
     for (int i = 0; i < psize; i++)
     {

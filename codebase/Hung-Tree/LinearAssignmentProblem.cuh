@@ -344,7 +344,8 @@ int LinearAssignmentProblem::hungarianStep2(bool count_time)
 		size_t total = 0, free = 0;
 		cudaMemGetInfo(&free, &total);
 		Log(warn, "Occupied %f GB", ((total - free) * 1.0) / (1024 * 1024 * 1024));
-		std::string filename = "init_row_ass" + std::to_string(N) + ".txt";
+		std::string scratchdir = "/home/samiran2/LAP-Project/cuLAP/Scratch/initial_zero_covers/";
+		std::string filename = scratchdir + "init_row_ass" + std::to_string(N) + ".txt";
 		printDebugArraytoFile(d_vertices_dev[devID].row_assignments, N, filename.c_str(), devID);
 	}
 	Log(info, "match: %d, cover-count: %lu, time: %f", cover_count, cover_kernel_count, cover_time);
