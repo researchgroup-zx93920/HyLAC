@@ -83,8 +83,8 @@ public:
     CUDA_RUNTIME(cudaMalloc(&cub_storage, greatest));
 
     S1();
-    // S2();
-    computeInitialAssignments();
+    S2();
+    // computeInitialAssignments();
 
     nmatch_cur = 0, nmatch_old = 0;
     CUDA_RUNTIME(cudaDeviceSynchronize());
@@ -93,8 +93,8 @@ public:
     bool first = true;
     while (nmatch_cur < psize)
     {
-
-      if (false)
+      Timer t1;
+      if (true)
         S456_classical();
       else
       {
@@ -107,11 +107,15 @@ public:
         S456_tree();
       }
       S3();
+      double elap = t1.elapsed();
+      Log(info, "matches: %d, delta_t: %f", nmatch_cur, elap);
       // Log(info, "nmatches# %d", nmatch_cur);
     }
     CUDA_RUNTIME(cudaFree(cub_storage));
 
     *objective = 0;
+    d_costs = slack;
+    CUDA_RUNTIME(cudaMemcpy(d_costs, h_costs, psize2 * sizeof(data), cudaMemcpyHostToDevice));
     uint gridDim = (uint)ceil((psize * 1.0) / BLOCK_DIMX);
     execKernel(get_obj, gridDim, BLOCK_DIMX, devID, false,
                row_ass, d_costs, objective);
@@ -122,12 +126,13 @@ private:
   void Allocate()
   {
     size_t N = psize, N2 = psize2;
-    CUDA_RUNTIME(cudaMalloc((void **)&d_costs, N2 * sizeof(data)));
-    CUDA_RUNTIME(cudaMemcpy(d_costs, h_costs, N2 * sizeof(data), cudaMemcpyDefault));
+    // CUDA_RUNTIME(cudaMalloc((void **)&d_costs, N2 * sizeof(data)));
+    // CUDA_RUNTIME(cudaMemcpy(d_costs, h_costs, N2 * sizeof(data), cudaMemcpyDefault));
 
     CUDA_RUNTIME(cudaMalloc((void **)&row_duals, N * sizeof(double)));
     CUDA_RUNTIME(cudaMalloc((void **)&col_duals, N * sizeof(double)));
     CUDA_RUNTIME(cudaMalloc((void **)&slack, N2 * sizeof(data)));
+    CUDA_RUNTIME(cudaMemcpy(slack, h_costs, N2 * sizeof(data), cudaMemcpyDefault));
 
     CUDA_RUNTIME(cudaMalloc((void **)&zeros, N2 * sizeof(size_t)));
     CUDA_RUNTIME(cudaMalloc((void **)&zeros_size_b, nb4 * sizeof(size_t)));
@@ -148,42 +153,41 @@ private:
   void DeAllocate(algEnum alg = CLASSICAL)
   {
     // if (alg == CLASSICAL || alg = BOTH)
-    /*{
-      CUDA_RUNTIME(cudaFree(zeros));
+    {
       CUDA_RUNTIME(cudaFree(zeros_size_b));
       CUDA_RUNTIME(cudaFree(min_vect));
       CUDA_RUNTIME(cudaFree(min_mat));
-      CUDA_RUNTIME(cudaFree(slack));
-    }*/
+      // CUDA_RUNTIME(cudaFree(slack));
+    }
 
     // if (alg == TREE || alg == BOTH)
-    {
 
-      CUDA_RUNTIME(cudaFree(row_cover));
-      CUDA_RUNTIME(cudaFree(col_cover));
-      CUDA_RUNTIME(cudaFree(row_visited));
-      CUDA_RUNTIME(cudaFree(col_visited));
-      CUDA_RUNTIME(cudaFree(row_data.is_visited));
-      CUDA_RUNTIME(cudaFree(row_data.parents));
-      CUDA_RUNTIME(cudaFree(row_data.children));
+    CUDA_RUNTIME(cudaFree(zeros));
+    CUDA_RUNTIME(cudaFree(row_cover));
+    CUDA_RUNTIME(cudaFree(col_cover));
+    CUDA_RUNTIME(cudaFree(row_visited));
+    CUDA_RUNTIME(cudaFree(col_visited));
+    /*{
+       CUDA_RUNTIME(cudaFree(row_data.is_visited));
+       CUDA_RUNTIME(cudaFree(row_data.parents));
+       CUDA_RUNTIME(cudaFree(row_data.children));
 
-      CUDA_RUNTIME(cudaFree(col_data.is_visited));
-      CUDA_RUNTIME(cudaFree(col_data.parents));
-      CUDA_RUNTIME(cudaFree(col_data.children));
-      CUDA_RUNTIME(cudaFree(col_data.slack));
+       CUDA_RUNTIME(cudaFree(col_data.is_visited));
+       CUDA_RUNTIME(cudaFree(col_data.parents));
+       CUDA_RUNTIME(cudaFree(col_data.children));
+       CUDA_RUNTIME(cudaFree(col_data.slack));
 
-      CUDA_RUNTIME(cudaFree(vertex_predicates.predicates));
-      CUDA_RUNTIME(cudaFree(vertex_predicates.addresses));
-      CUDA_RUNTIME(cudaFree(vertices_csr1));
-    }
+       CUDA_RUNTIME(cudaFree(vertex_predicates.predicates));
+       CUDA_RUNTIME(cudaFree(vertex_predicates.addresses));
+       CUDA_RUNTIME(cudaFree(vertices_csr1));
+     }*/
     CUDA_RUNTIME(cudaFree(objective));
-    CUDA_RUNTIME(cudaFree(d_costs));
     CUDA_RUNTIME(cudaFree(row_duals));
     CUDA_RUNTIME(cudaFree(col_duals));
 
     CUDA_RUNTIME(cudaFree(row_ass));
     CUDA_RUNTIME(cudaFree(col_ass));
-
+    CUDA_RUNTIME(cudaFree(d_costs));
     CUDA_RUNTIME(cudaDeviceReset());
   }
   void S1() // Row and column reduction
@@ -191,7 +195,7 @@ private:
 
     // row_reduce
     execKernel(row_reduce, psize, BLOCK_DIMX, devID, false,
-               d_costs, row_duals, slack);
+               row_duals, slack);
 
     // column reduce
     {
@@ -215,11 +219,12 @@ private:
     CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b2, zeros_size_b,
                                         &zeros_size, (int)nb4));
 
+    // cover zeros
     do
     {
       repeat_kernel = false;
       uint blockDim = (nb4 > 1 || zeros_size > BLOCK_DIMX) ? BLOCK_DIMX : zeros_size;
-      execKernel(step2, nb4, blockDim, devID, true,
+      execKernel(step2, nb4, blockDim, devID, false,
                  zeros, zeros_size_b, row_cover, col_cover, row_ass, col_ass);
     } while (repeat_kernel);
   }
@@ -284,13 +289,15 @@ private:
 
   void CtoT()
   {
-    CUDA_RUNTIME(cudaFree(zeros));
+    // CUDA_RUNTIME(cudaFree(zeros));
     CUDA_RUNTIME(cudaFree(zeros_size_b));
     CUDA_RUNTIME(cudaFree(min_vect));
     CUDA_RUNTIME(cudaFree(min_mat));
-    CUDA_RUNTIME(cudaFree(slack));
+    // CUDA_RUNTIME(cudaFree(slack)); //reuse this memory for tree code
+    const size_t N = psize, N2 = psize2;
+    d_costs = slack;
+    CUDA_RUNTIME(cudaMemcpy(d_costs, h_costs, N2 * sizeof(data), cudaMemcpyHostToDevice));
 
-    const size_t N = psize;
     CUDA_RUNTIME(cudaMalloc((void **)&row_data.is_visited, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&row_data.parents, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&row_data.children, N * sizeof(int)));
@@ -332,7 +339,7 @@ private:
       // sets each element to its index
       execKernel(tree::S4_init, gridDim, BLOCK_DIMX, devID, false, vertices_csr1);
 
-      int *vertices_csr2;
+      int *vertices_csr2 = (int *)zeros;
       // long csr2_size;
       while (true)
       {
@@ -349,7 +356,6 @@ private:
 
         if (csr2_size > 0)
         {
-          CUDA_RUNTIME(cudaMalloc((void **)&vertices_csr2, csr2_size * sizeof(int)));
           execKernel(vertexScatterCSR, gridDim, BLOCK_DIMX, devID, false,
                      vertices_csr2, vertices_csr1, row_data.is_visited, vertex_predicates);
         }
@@ -360,11 +366,9 @@ private:
         // -- Most time consuming function
         execKernel((coverAndExpand<data>), gridDim, BLOCK_DIMX, devID, false,
                    vertices_csr2, csr2_size,
-                   d_costs, row_duals_tree, col_duals_tree,
+                   slack, row_duals_tree, col_duals_tree,
                    row_ass, col_ass, row_cover, col_cover,
                    row_data, col_data);
-
-        CUDA_RUNTIME(cudaFree(vertices_csr2));
       }
       if (goto_5)
         break;

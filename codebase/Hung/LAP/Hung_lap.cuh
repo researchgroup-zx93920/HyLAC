@@ -1,3 +1,4 @@
+#pragma once
 #include "../include/defs.cuh"
 #include "../include/logger.cuh"
 #include "../include/Timer.h"
@@ -200,7 +201,7 @@ public:
         total_cost += cost_[c * h_nrows + r];
       // printf("r = %d, c = %d\n", r, c);
     }
-    printf("Total cost: \t %f \n", total_cost);
+    printf("Total cost: \t %u \n", (uint)total_cost);
   };
 
   bool passes_sanity_test(data *d_min)

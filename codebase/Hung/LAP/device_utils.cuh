@@ -40,8 +40,8 @@ struct GLOBAL_HANDLE
     CUDA_RUNTIME(cudaFree(column_of_prime_at_row));
     CUDA_RUNTIME(cudaFree(row_of_green_at_column));
 
-    CUDA_RUNTIME(cudaFree(max_in_mat_row));
-    CUDA_RUNTIME(cudaFree(max_in_mat_col));
+    // CUDA_RUNTIME(cudaFree(max_in_mat_row));
+    // CUDA_RUNTIME(cudaFree(max_in_mat_col));
     CUDA_RUNTIME(cudaFree(d_min_in_mat_vect));
     CUDA_RUNTIME(cudaFree(d_min_in_mat));
   };

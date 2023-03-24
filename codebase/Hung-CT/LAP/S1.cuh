@@ -5,14 +5,14 @@
 #include "utils.cuh"
 #include "device_utils.cuh"
 
-fundef row_reduce(const data *cost, double *row_min, data *slack)
+fundef row_reduce(double *row_min, data *slack)
 {
   const size_t tid = threadIdx.x;
   const size_t rowID = (size_t)blockIdx.x * SIZE;
   data thread_min = (data)MAX_DATA;
   for (size_t i = tid; i < SIZE; i += blockDim.x)
   {
-    thread_min = min(thread_min, cost[i + rowID]);
+    thread_min = min(thread_min, slack[i + rowID]);
   }
   __syncthreads();
   typedef cub::BlockReduce<data, BLOCK_DIMX> BR;
@@ -24,7 +24,7 @@ fundef row_reduce(const data *cost, double *row_min, data *slack)
 
   for (size_t i = tid; i < SIZE; i += blockDim.x)
   {
-    slack[i + rowID] = cost[i + rowID] - (data)row_min[blockIdx.x];
+    slack[i + rowID] = slack[i + rowID] - (data)row_min[blockIdx.x];
   }
 }
 
