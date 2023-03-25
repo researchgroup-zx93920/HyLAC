@@ -34,7 +34,7 @@ T *generate_cost(Config config, const size_t seed = 45345)
     {
       default_random_engine generator(seed + r);
       generator.discard(1);
-      uniform_int_distribution<uint> distribution(0, range - 1);
+      uniform_int_distribution<T> distribution(0, range - 1);
       for (size_t c = 0; c < ncols; c++)
       {
         if (c < size && r < size)

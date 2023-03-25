@@ -21,6 +21,11 @@ private:
   const uint cpbs4 = 512;
   uint nb4, nbr, dbs, l2dbs;
 
+  const uint n_threads = (uint)min(psize, 64UL);
+  const uint n_threads_full = (uint)min(psize, 512UL);
+  const uint n_threads_reduction = 256;
+  size_t n_blocks, n_blocks_full;
+
   // All device variables (To be added to a handle later)
   double *row_duals, *col_duals;
   data *slack;
@@ -48,9 +53,11 @@ public:
     psize2 = psize * psize;
     CUDA_RUNTIME(cudaMemcpyToSymbol(SIZE, &psize, sizeof(SIZE)));
     CUDA_RUNTIME(cudaMemcpyToSymbol(SIZE2, &psize2, sizeof(SIZE)));
+    n_blocks = (size_t)ceil((psize * 1.0) / n_threads);
+    n_blocks_full = (size_t)ceil((psize2 * 1.0) / n_threads_full);
 
     nb4 = max((uint)ceil((psize * 1.0) / cpbs4), 1);
-    nbr = min(psize, 255UL);
+    nbr = min(psize, 256UL);
     dbs = cpbs4 * pow(2, ceil(log2(psize)));
     l2dbs = (uint)log2(dbs);
 
@@ -89,8 +96,8 @@ public:
     nmatch_cur = 0, nmatch_old = 0;
     CUDA_RUNTIME(cudaDeviceSynchronize());
     S3();
-    Log(info, "nmatches# %d", nmatch_cur);
     bool first = true;
+    Log(info, "initial matches: %d", nmatch_cur);
     while (nmatch_cur < psize)
     {
       Timer t1;
@@ -143,7 +150,7 @@ private:
     CUDA_RUNTIME(cudaMalloc((void **)&col_cover, N * sizeof(int)));
 
     CUDA_RUNTIME(cudaMalloc((void **)&min_vect, nbr * sizeof(data)));
-    CUDA_RUNTIME(cudaMalloc((void **)&min_mat, 1 * sizeof(data)));
+    CUDA_RUNTIME(cudaMallocManaged((void **)&min_mat, 1 * sizeof(data)));
 
     CUDA_RUNTIME(cudaMalloc((void **)&row_visited, N * sizeof(int)));
     CUDA_RUNTIME(cudaMalloc((void **)&col_visited, N * sizeof(int)));
@@ -157,7 +164,6 @@ private:
       CUDA_RUNTIME(cudaFree(zeros_size_b));
       CUDA_RUNTIME(cudaFree(min_vect));
       CUDA_RUNTIME(cudaFree(min_mat));
-      // CUDA_RUNTIME(cudaFree(slack));
     }
 
     // if (alg == TREE || alg == BOTH)
@@ -212,8 +218,8 @@ private:
                row_ass, col_ass, row_cover, col_cover);
     CUDA_RUNTIME(cudaMemset(zeros_size_b, 0, nb4 * sizeof(size_t)));
 
-    gridDim = (uint)ceil(psize2 * 1.0 / BLOCK_DIMX);
-    execKernel(compress_matrix, gridDim, BLOCK_DIMX, devID, false,
+    // gridDim = (uint)ceil(psize2 * 1.0 / BLOCK_DIMX);
+    execKernel((compress_matrix<data>), n_blocks_full, n_threads_full, devID, false,
                zeros, zeros_size_b, slack);
 
     CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b2, zeros_size_b,
@@ -223,47 +229,55 @@ private:
     do
     {
       repeat_kernel = false;
-      uint blockDim = (nb4 > 1 || zeros_size > BLOCK_DIMX) ? BLOCK_DIMX : zeros_size;
-      execKernel(step2, nb4, blockDim, devID, false,
+      uint temp_blockDim = (nb4 > 1 || zeros_size > 1024) ? 1024 : zeros_size;
+      execKernel(step2, nb4, temp_blockDim, devID, false,
                  zeros, zeros_size_b, row_cover, col_cover, row_ass, col_ass);
     } while (repeat_kernel);
   }
   void S3() // get match count (read from row_ass and write to col_cover_)
   {
+    // S3 init
     CUDA_RUNTIME(cudaMemset(row_cover, 0, psize * sizeof(int)));
     CUDA_RUNTIME(cudaMemset(col_cover, 0, psize * sizeof(int)));
+
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX);
     nmatch_old = nmatch_cur;
     nmatch_cur = 0;
     CUDA_RUNTIME(cudaDeviceSynchronize());
-    execKernel(step3, gridDim, BLOCK_DIMX, devID, false, row_ass, col_cover); // read from row_ass and write to col_cover
+    execKernel(step3, n_blocks, n_threads, devID, false, row_ass, col_cover); // read from row_ass and write to col_cover
   }
   void S6() // Classical step 6
   {
-    execKernel((min_reduce_kernel1<data, BLOCK_DIMX>),
-               nbr, BLOCK_DIMX, devID, false,
+    execKernel((min_reduce_kernel1<data, 256>),
+               nbr, n_threads_reduction, devID, false,
                slack, min_vect, row_cover, col_cover);
 
     // finding minimum with cub
     CUDA_RUNTIME(cub::DeviceReduce::Reduce(cub_storage, b1, min_vect, min_mat,
                                            nbr, cub::Min(), MAX_DATA));
+    if (!passes_sanity_test(min_mat))
+      exit(-1);
 
+    // S6_init
     zeros_size = 0;
-    CUDA_RUNTIME(cudaMemset(zeros_size_b, 0, nb4));
+    CUDA_RUNTIME(cudaMemset(zeros_size_b, 0, nb4 * sizeof(size_t)));
+
     uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX);
     execKernel(S6_DualUpdate, gridDim, BLOCK_DIMX, devID, false, // Dual update for step6
                row_cover, col_cover, min_mat, row_duals, col_duals);
-    gridDim = (uint)ceil(psize2 * 1.0 / BLOCK_DIMX);
-    execKernel(S6_update, gridDim, BLOCK_DIMX, devID, false,
+
+    execKernel(S6_update, n_blocks_full, n_threads_full, devID, false,
                slack, row_cover, col_cover, min_mat, zeros, zeros_size_b);
+    // printDeviceArray<size_t>(zeros_size_b, nb4, "zeros size array");
     CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b2, zeros_size_b,
                                         &zeros_size, nb4));
   }
 
   void S456_classical() // Classical Version
   {
-    uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX);
-    execKernel(S4_init, gridDim, BLOCK_DIMX, devID, false,
+    // uint gridDim = (uint)ceil(psize * 1.0 / BLOCK_DIMX);
+
+    execKernel(classical::S4_init, n_blocks, n_threads, devID, false,
                col_visited, row_visited);
     while (1)
     {
@@ -272,8 +286,8 @@ private:
         goto_5 = false;
         repeat_kernel = false;
         CUDA_RUNTIME(cudaDeviceSynchronize());
-        uint blockDim = (nb4 > 1 || zeros_size > BLOCK_DIMX) ? BLOCK_DIMX : zeros_size;
-        execKernel(S4, nb4, blockDim, devID, false,
+        uint temp_blockDim = (nb4 > 1 || zeros_size > 1024) ? 1024 : zeros_size;
+        execKernel(S4, nb4, temp_blockDim, devID, false,
                    row_cover, col_cover, col_visited,
                    zeros, zeros_size_b, col_ass);
       } while (repeat_kernel && !goto_5);
@@ -281,18 +295,19 @@ private:
         break;
       S6();
     }
-    execKernel(S5a, gridDim, BLOCK_DIMX, devID, false,
+    execKernel(S5a, n_blocks, n_threads, devID, false,
                col_visited, row_visited, row_ass, col_ass);
-    execKernel(S5b, gridDim, BLOCK_DIMX, devID, false,
+    execKernel(S5b, n_blocks, n_threads, devID, false,
                row_visited, row_ass, col_ass);
   }
 
   void CtoT()
   {
-    // CUDA_RUNTIME(cudaFree(zeros));
     CUDA_RUNTIME(cudaFree(zeros_size_b));
     CUDA_RUNTIME(cudaFree(min_vect));
     CUDA_RUNTIME(cudaFree(min_mat));
+
+    // CUDA_RUNTIME(cudaFree(zeros)); //reuse for tree code
     // CUDA_RUNTIME(cudaFree(slack)); //reuse this memory for tree code
     const size_t N = psize, N2 = psize2;
     d_costs = slack;
@@ -483,5 +498,19 @@ private:
 
     CUDA_RUNTIME(cudaFree(d_row_lock));
     CUDA_RUNTIME(cudaFree(d_col_lock));
+  }
+
+  bool passes_sanity_test(data *d_min)
+  {
+    data temp;
+    CUDA_RUNTIME(cudaMemcpy(&temp, d_min, 1 * sizeof(data), cudaMemcpyDeviceToHost));
+    if (temp <= 0)
+    {
+      Log(critical, "minimum element in matrix is non positive => infinite loop condition !!!");
+      Log(critical, "%d", temp);
+      return false;
+    }
+    else
+      return true;
   }
 };

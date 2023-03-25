@@ -93,10 +93,10 @@ __device__ void __traverse(data *d_costs, double *row_duals, double *col_duals,
   {
     int rowid = *ptr1;
     data slack;
-    // if (std::is_same_v<data, uint> || std::is_same_v<data, int>)
-    //   slack = (data)(d_costs[rowid * SIZE + colid] - (int)(row_duals[rowid] + col_duals[colid]));
-    // else
-    slack = d_costs[rowid * SIZE + colid] - (data)(row_duals[rowid] + col_duals[colid]);
+    if (std::is_same_v<data, uint> || std::is_same_v<data, int>)
+      slack = (data)(d_costs[rowid * SIZE + colid] - (int)(row_duals[rowid] + col_duals[colid]));
+    else
+      slack = d_costs[rowid * SIZE + colid] - (data)(row_duals[rowid] + col_duals[colid]);
     int nxt_rowid = col_ass[colid];
     if (rowid != nxt_rowid && col_cover[colid] == 0)
     {
@@ -136,7 +136,7 @@ __device__ void __traverse(data *d_costs, double *row_duals, double *col_duals,
 template <typename data = uint>
 __global__ void coverAndExpand(
     int *vertices_csr2, const size_t csr2_size,
-    double *d_costs, double *row_duals, double *col_duals,
+    data *d_costs, double *row_duals, double *col_duals,
     int *row_ass, int *col_ass, int *row_cover, int *col_cover,
     VertexData<data> row_data, VertexData<data> col_data)
 {

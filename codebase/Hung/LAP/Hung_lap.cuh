@@ -39,17 +39,17 @@ public:
     const uint temp2 = (uint)ceil(log2(size_));
     CUDA_RUNTIME(cudaMemcpyToSymbol(log2_n, &temp2, sizeof(log2_n)));
     gh.row_mask = (1 << temp2) - 1;
-    Log(debug, "log2_n %d", temp2);
-    Log(debug, "row mask: %d", gh.row_mask);
+    // Log(debug, "log2_n %d", temp2);
+    // Log(debug, "row mask: %d", gh.row_mask);
     gh.nb4 = max((uint)ceil((size * 1.0) / columns_per_block_step_4), 1);
     CUDA_RUNTIME(cudaMemcpyToSymbol(n_blocks_step_4, &gh.nb4, sizeof(n_blocks_step_4)));
     const uint temp4 = columns_per_block_step_4 * pow(2, ceil(log2(size_)));
-    Log(debug, "dbs: %u", temp4);
+    // Log(debug, "dbs: %u", temp4);
     CUDA_RUNTIME(cudaMemcpyToSymbol(data_block_size, &temp4, sizeof(data_block_size)));
     const uint temp5 = temp2 + (uint)ceil(log2(columns_per_block_step_4));
-    Log(debug, "l2dbs: %u", temp5);
+    // Log(debug, "l2dbs: %u", temp5);
     CUDA_RUNTIME(cudaMemcpyToSymbol(log2_data_block_size, &temp5, sizeof(log2_data_block_size)));
-    Log(debug, " nb4: %u\n nbr: %u\n dbs: %u\n l2dbs %u\n", gh.nb4, num_blocks_reduction, temp4, temp5);
+    // Log(debug, " nb4: %u\n nbr: %u\n dbs: %u\n l2dbs %u\n", gh.nb4, num_blocks_reduction, temp4, temp5);
     // memory allocations
     // CUDA_RUNTIME(cudaMalloc((void **)&gh.cost, size * size * sizeof(data)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.slack, size * size * sizeof(data)));
@@ -68,7 +68,7 @@ public:
     // CUDA_RUNTIME(cudaMalloc((void **)&gh.max_in_mat_row, h_nrows * sizeof(data)));
     // CUDA_RUNTIME(cudaMalloc((void **)&gh.max_in_mat_col, h_ncols * sizeof(data)));
     CUDA_RUNTIME(cudaMalloc((void **)&gh.d_min_in_mat_vect, num_blocks_reduction * sizeof(data)));
-    CUDA_RUNTIME(cudaMalloc((void **)&gh.d_min_in_mat, 1 * sizeof(data)));
+    CUDA_RUNTIME(cudaMallocManaged((void **)&gh.d_min_in_mat, 1 * sizeof(data)));
 
     CUDA_RUNTIME(cudaMemcpy(gh.slack, cost_, size * size * sizeof(data), cudaMemcpyDefault));
     // CUDA_RUNTIME(cudaMemcpy(gh.cost, cost_, size * size * sizeof(data), cudaMemcpyDefault));
@@ -89,7 +89,6 @@ public:
 
     const size_t n_blocks = (size_t)ceil((size_ * 1.0) / n_threads);
     const size_t n_blocks_full = (size_t)ceil((size_ * size_ * 1.0) / n_threads_full);
-    Log(debug, "n blocks full %lu", n_blocks_full);
 
     execKernel(init, n_blocks, n_threads, dev_, false, gh);
 
@@ -99,19 +98,19 @@ public:
     execKernel(calc_col_min, size_, n_threads_reduction, dev_, false, gh);
     execKernel(col_sub, n_blocks_full, n_threads_full, dev_, false, gh);
 
-    execKernel(compress_matrix, n_blocks_full, n_threads_full, dev_, true, gh);
+    execKernel(compress_matrix, n_blocks_full, n_threads_full, dev_, false, gh);
 
     // use thrust instead of add reduction
     // execKernel((add_reduction), 1, (uint)ceil(max(size_ / columns_per_block_step_4, 1)), dev_, false, gh);
     zeros_size = thrust::reduce(thrust::device, gh.zeros_size_b, gh.zeros_size_b + num_blocks_4);
 
-    printDebugArray(gh.zeros_size_b, gh.nb4, "zeros array");
-    Log(debug, "Zeros size: %d", zeros_size);
+    // printDebugArray(gh.zeros_size_b, gh.nb4, "zeros array");
+    // Log(debug, "Zeros size: %d", zeros_size);
     do
     {
       repeat_kernel = false;
       uint temp_blockdim = (gh.nb4 > 1 || zeros_size > max_threads_per_block) ? max_threads_per_block : zeros_size;
-      execKernel(step_2, gh.nb4, temp_blockdim, dev_, true, gh);
+      execKernel(step_2, gh.nb4, temp_blockdim, dev_, false, gh);
     } while (repeat_kernel);
 
     // printDebugArray(gh.row_of_star_at_column, size_, "row ass");
@@ -127,11 +126,15 @@ public:
     CUDA_RUNTIME(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes2, gh.zeros_size_b, &zeros_size, num_blocks_4));
     size_t temp_storage_bytes = max(temp_storage_bytes1, temp_storage_bytes2);
     CUDA_RUNTIME(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-
+    bool first = true;
     while (1)
     {
       execKernel(step_3_init, n_blocks, n_threads, dev_, false, gh);
       execKernel(step_3, n_blocks, n_threads, dev_, false, gh);
+      if (first)
+      {
+        first = false;
+      }
       if (n_matches >= h_ncols)
         break;
 
@@ -181,9 +184,9 @@ public:
 
         // add_reduction
 
+        // printDebugArray(gh.zeros_size_b, num_blocks_4);
         CUDA_RUNTIME(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes2, gh.zeros_size_b, &zeros_size, num_blocks_4));
 
-        // printDebugArray(gh.zeros_size_b, num_blocks_4);
       } // repeat step 4 and 6
 
       execKernel(step_5a, n_blocks, n_threads, dev_, false, gh);
@@ -201,7 +204,7 @@ public:
         total_cost += cost_[c * h_nrows + r];
       // printf("r = %d, c = %d\n", r, c);
     }
-    printf("Total cost: \t %u \n", (uint)total_cost);
+    printf("Obj val: %u\n", (uint)total_cost);
   };
 
   bool passes_sanity_test(data *d_min)

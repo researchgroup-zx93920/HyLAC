@@ -20,4 +20,4 @@ __managed__ __device__ int nmatch_cur, nmatch_old;
 // typedef float data;
 // typedef double data;
 
-#define BLOCK_DIMX 128
+#define BLOCK_DIMX 256

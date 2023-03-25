@@ -5,17 +5,19 @@
 #include "utils.cuh"
 #include "device_utils.cuh"
 
-__global__ void S4_init(int *col_visited, int *row_visited)
+namespace classical
 {
-  size_t tid = threadIdx.x;
-  size_t i = tid + (size_t)blockIdx.x * blockDim.x;
-  if (i < SIZE)
+  __global__ void S4_init(int *col_visited, int *row_visited)
   {
-    col_visited[i] = -1;
-    row_visited[i] = -1;
+    size_t tid = threadIdx.x;
+    size_t i = tid + (size_t)blockIdx.x * blockDim.x;
+    if (i < SIZE)
+    {
+      col_visited[i] = -1;
+      row_visited[i] = -1;
+    }
   }
 }
-
 __global__ void S4(int *row_cover, int *col_cover, int *col_visited,
                    const size_t *zeros, const size_t *zeros_size_b, const int *col_ass)
 {

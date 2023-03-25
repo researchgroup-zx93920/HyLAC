@@ -21,9 +21,9 @@ int main(int argc, char **argv)
   int size = config.size;
   int dev = config.deviceId;
 
-  // typedef uint data;
+  typedef uint data;
   // typedef float data;
-  typedef double data;
+  // typedef double data;
 
   double time;
   Timer t;
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 
   lpx.solve();
   time = t.elapsed_and_reset();
-  Log(info, "Solve time %f s", time);
+  Log(critical, "solve time %f s", time);
   std::cout << "\n\n\n\n\n";
   delete[] h_costs;
 }
