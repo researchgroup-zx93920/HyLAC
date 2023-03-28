@@ -92,16 +92,19 @@ public:
     S1();
     S2();
     // computeInitialAssignments();
-
+    std::vector<int> match_trend;
     nmatch_cur = 0, nmatch_old = 0;
     CUDA_RUNTIME(cudaDeviceSynchronize());
     S3();
+    match_trend.push_back(nmatch_cur - nmatch_old);
     bool first = true;
     Log(info, "initial matches: %d", nmatch_cur);
     while (nmatch_cur < psize)
     {
       Timer t1;
-      if (true)
+      if (decision(match_trend) && first)
+        // if (nmatch_cur < 52000)
+        // if (false)
         S456_classical();
       else
       {
@@ -114,6 +117,7 @@ public:
         S456_tree();
       }
       S3();
+      match_trend.push_back(nmatch_cur - nmatch_old);
       double elap = t1.elapsed();
       Log(info, "matches: %d, delta_t: %f", nmatch_cur, elap);
       // Log(info, "nmatches# %d", nmatch_cur);
@@ -156,6 +160,9 @@ private:
     CUDA_RUNTIME(cudaMalloc((void **)&col_visited, N * sizeof(int)));
 
     CUDA_RUNTIME(cudaMallocManaged((void **)&objective, 1 * sizeof(data)));
+    size_t total = 0, free = 0;
+    cudaMemGetInfo(&free, &total);
+    Log(warn, "Occupied %f GB", ((total - free) * 1.0) / (1024 * 1024 * 1024));
   }
   void DeAllocate(algEnum alg = CLASSICAL)
   {
@@ -303,9 +310,9 @@ private:
 
   void CtoT()
   {
-    CUDA_RUNTIME(cudaFree(zeros_size_b));
-    CUDA_RUNTIME(cudaFree(min_vect));
-    CUDA_RUNTIME(cudaFree(min_mat));
+    // CUDA_RUNTIME(cudaFree(zeros_size_b));
+    // CUDA_RUNTIME(cudaFree(min_vect));
+    // CUDA_RUNTIME(cudaFree(min_mat));
 
     // CUDA_RUNTIME(cudaFree(zeros)); //reuse for tree code
     // CUDA_RUNTIME(cudaFree(slack)); //reuse this memory for tree code
@@ -509,6 +516,37 @@ private:
       Log(critical, "minimum element in matrix is non positive => infinite loop condition !!!");
       Log(critical, "%d", temp);
       return false;
+    }
+    else
+      return true;
+  }
+
+  bool decision(std::vector<int> match_trend)
+  {
+    // S1
+    // return (match_trend.back() > 1);
+
+    // S2, S3
+    // static int count;
+    // if (match_trend.back() <= 1)
+    // {
+    //   count++;
+    // }
+    // return count <= 5; // S2
+    // return count <= 10; // S3
+
+    // S4
+    // Log(critical, "match trend size %u", match_trend.size());
+    if (match_trend.size() > 5)
+    {
+      int last5 = 0;
+      for (int i = 0; i < 5; i++)
+      {
+        last5 += match_trend.at(match_trend.size() - i - 1);
+        // Log(info, "total: %d", total);
+      }
+      return last5 >= 10; // S4
+      // return total >= 30; // S5
     }
     else
       return true;

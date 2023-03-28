@@ -7,4 +7,4 @@ logs/**
 *.supp
 
 # Negated files
-!get_SM.sh
+# !get_SM.sh
