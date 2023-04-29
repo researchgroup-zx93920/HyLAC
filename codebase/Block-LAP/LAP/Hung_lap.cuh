@@ -190,7 +190,7 @@ public:
     Timer t;
     execKernel((THA<data, nthr>), nblocks, nthr, dev_, true, th);
     auto time = t.elapsed();
-    Log(info, "kernel time %f s\n", time);
+    Log(info, "Solve time %f s\n", time);
   }
 
   void allocate(uint nproblem, size_t size, int dev)
