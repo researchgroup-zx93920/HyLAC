@@ -8,6 +8,7 @@
 
 #include <type_traits> //for comparing typenames
 
+uint g_pre_DA_counts, g_post_DA_counts, g_DA_counts;
 namespace tree
 {
   // Kernel for initializing the row or column vertices, later used for recursive frontier update (in Step 3).

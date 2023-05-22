@@ -98,13 +98,16 @@ public:
     S3();
     match_trend.push_back(nmatch_cur - nmatch_old);
     bool first = true;
-    Log(info, "initial matches: %d", nmatch_cur);
+    // Log(info, "initial matches: %d", nmatch_cur);
+    g_pre_DA_counts = 0;
+    g_post_DA_counts = 0;
+    g_DA_counts = 0;
     while (nmatch_cur < psize)
     {
       Timer t1;
-      if (decision(match_trend) && first)
-        // if (nmatch_cur < 52000)
-        // if (false)
+      // if (decision(match_trend) && first)
+      // if (nmatch_cur < 52000)
+      if (true)
         S456_classical();
       else
       {
@@ -112,14 +115,14 @@ public:
         {
           CtoT();
           first = false;
-          Log(info, "Switched to Tree after %d matches", nmatch_cur);
+          // Log(info, "Switched to Tree after %d matches", nmatch_cur);
         }
         S456_tree();
       }
       S3();
       match_trend.push_back(nmatch_cur - nmatch_old);
       double elap = t1.elapsed();
-      Log(info, "matches: %d, delta_t: %f", nmatch_cur, elap);
+      // Log(info, "matches: %d, delta_t: %f", nmatch_cur, elap);
       // Log(info, "nmatches# %d", nmatch_cur);
     }
     CUDA_RUNTIME(cudaFree(cub_storage));
@@ -131,6 +134,7 @@ public:
     execKernel(get_obj, gridDim, BLOCK_DIMX, devID, false,
                row_ass, d_costs, objective);
     printf("Obj val: %u\n", (uint)*objective);
+    Log(info, "Pre %u, post %u, DA %u, Total %u\n", g_pre_DA_counts, g_post_DA_counts, g_DA_counts, g_pre_DA_counts + g_post_DA_counts);
   }
 
 private:
@@ -232,6 +236,9 @@ private:
     CUDA_RUNTIME(cub::DeviceReduce::Sum(cub_storage, b2, zeros_size_b,
                                         &zeros_size, (int)nb4));
 
+    // double est_range = (double)(psize * 1.0) / zeros_size;
+    // printf("Est %f\n", est_range);
+    // exit(0);
     // cover zeros
     do
     {
@@ -252,6 +259,7 @@ private:
     nmatch_cur = 0;
     CUDA_RUNTIME(cudaDeviceSynchronize());
     execKernel(step3, n_blocks, n_threads, devID, false, row_ass, col_cover); // read from row_ass and write to col_cover
+    // Log(critical, "# matches %u", nmatch_cur);
   }
   void S6() // Classical step 6
   {
@@ -355,6 +363,9 @@ private:
                row_ass,
                row_cover, col_cover,
                row_data, col_data);
+    uint pre_DA_counts = 0;
+    uint post_DA_counts = 0;
+    uint DA_counts = 0;
     while (true)
     {
       // S4
@@ -391,6 +402,10 @@ private:
                    slack, row_duals_tree, col_duals_tree,
                    row_ass, col_ass, row_cover, col_cover,
                    row_data, col_data);
+        if (DA_counts == 0)
+          pre_DA_counts++;
+        else
+          post_DA_counts++;
       }
       if (goto_5)
         break;
@@ -414,7 +429,7 @@ private:
       execKernel((tree::dualUpdate<data>), gridDim, BLOCK_DIMX, devID, false,
                  theta, row_duals_tree, col_duals_tree, col_data.slack, row_cover, col_cover,
                  col_data.parents, row_data.is_visited);
-
+      DA_counts++;
       delete[] temp;
       delete[] temp2;
 
@@ -479,6 +494,11 @@ private:
     CUDA_RUNTIME(cudaFree(row_predicates.predicates));
     CUDA_RUNTIME(cudaFree(row_predicates.addresses));
     // return; -- null return
+
+    // Log(info, "Pre DA: %u Post DA: %u DA: %u\n", pre_DA_counts, post_DA_counts, DA_counts);
+    g_pre_DA_counts += pre_DA_counts;
+    g_post_DA_counts += post_DA_counts;
+    g_DA_counts += DA_counts;
   }
 
   void interrupt()
