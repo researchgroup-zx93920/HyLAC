@@ -2,7 +2,7 @@
 *.DS_Store
 
 # Scratch
-Scratch/**
+Scratch*/**
 
 # JetBrains
 .idea
