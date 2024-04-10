@@ -100,7 +100,7 @@ fundef row_sub(GLOBAL_HANDLE<data> gh)
 template <typename data = int>
 __device__ bool near_zero(data val)
 {
-  return ((val < epsilon) && (val > -epsilon));
+  return ((val < eps) && (val > -eps));
 }
 
 fundef compress_matrix(GLOBAL_HANDLE<data> gh)
