@@ -9,6 +9,7 @@ struct Config
   double frac;
   int deviceId;
   int seed;
+  int mode;
 };
 
 static void usage()
@@ -19,6 +20,7 @@ static void usage()
           "\n-f range-fracrtion"
           "\n-d <deviceId"
           "\n-s <seed-value>"
+          "\n-m <mode> (0: Generate, 1: test1, 2: test2)"
           "\n");
 }
 
@@ -28,6 +30,7 @@ static void printConfig(Config config)
   printf("  frac: %f\n", config.frac);
   printf("  Device: %u\n", config.deviceId);
   printf("  seed value: %d\n", config.seed);
+  printf("  mode: %d\n", config.mode);
 }
 
 static Config parseArgs(int argc, char **argv)
@@ -37,9 +40,10 @@ static Config parseArgs(int argc, char **argv)
   config.frac = 1.0;
   config.deviceId = 0;
   config.seed = 45345;
+  config.mode = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "n:f:d:s:h:")) >= 0)
+  while ((opt = getopt(argc, argv, "n:f:d:s:h:m:")) >= 0)
   {
     switch (opt)
     {
@@ -53,6 +57,9 @@ static Config parseArgs(int argc, char **argv)
       break;
     case 's':
       config.seed = atoi(optarg);
+      break;
+    case 'm':
+      config.mode = atoi(optarg);
       break;
     case 'h':
       usage();
