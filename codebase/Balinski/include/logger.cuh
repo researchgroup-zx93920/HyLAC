@@ -56,7 +56,7 @@ void Log(LogPriorityEnum l, const char *f, Args... args)
   }
 }
 
-//#define Log(l_, f_, ...)printf((f_), __VA_ARGS__);
+// #define Log(l_, f_, ...)printf((f_), __VA_ARGS__);
 
 template <typename data = int>
 void printDebugArray(const data *array, size_t len, std::string name = NULL)
