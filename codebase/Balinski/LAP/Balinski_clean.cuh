@@ -3,6 +3,7 @@
 #include <ctime>
 #include <fstream>
 #include <queue>
+#include "../include/cost_generator.h"
 
 using namespace std;
 
@@ -15,22 +16,20 @@ Choice 1 : 4x4 Test case 1
 Choice 2 : 4x4 Test case 2
 */
 
-void arrInit(int arrChoice, int *C, int SIZE)
+int *arrInit(Config config)
 {
+    int SIZE = config.user_n;
+    int arrChoice = config.mode;
+    int *C;
     if (arrChoice == 0)
     {
-        // Fill with random integers
-        for (int i = 0; i < SIZE; ++i)
-        {
-            for (int j = 0; j < SIZE; ++j)
-            {
-                C[i * SIZE + j] = rand() % 15 + rand() % 12 + rand() % 7;
-            }
-        }
+        C = generate_cost<int>(config, config.seed);
     }
     else if (arrChoice == 1)
     {
-        int initC[SIZE][SIZE] = {
+        SIZE = 4;
+        int *C = new int[SIZE * SIZE];
+        int initC[4][4] = {
             {7, 9, 8, 9},
             {2, 8, 5, 7},
             {1, 6, 6, 9},
@@ -45,7 +44,9 @@ void arrInit(int arrChoice, int *C, int SIZE)
     }
     else if (arrChoice == 2)
     {
-        int initC[SIZE][SIZE] = {
+        SIZE = 4;
+        int *C = new int[SIZE * SIZE];
+        int initC[4][4] = {
             {3, 8, 2, 1},
             {2, 7, 5, 5},
             {9, 8, 1, 2},
@@ -62,6 +63,7 @@ void arrInit(int arrChoice, int *C, int SIZE)
     {
         cerr << "Invalid choice!" << endl;
     }
+    return C;
 }
 
 /*
@@ -373,20 +375,8 @@ int dmin(bool *SU, bool *LV, int *C, int *u, int *v, int SIZE)
 }
 
 // int main(int *hcost, int n_size)
-int main()
+int balinski_solve(int *C, int SIZE)
 {
-    srand(time(NULL));
-    int arrChoice;
-    cout << "Enter choice (0 (to randomize), 1, or 2): ";
-    cin >> arrChoice;
-    int SIZE = 4;
-    cout << "Enter size of the matrix: ";
-    cin >> SIZE;
-
-    // int C[SIZE][SIZE];
-    int *C = new int[SIZE * SIZE];
-    arrInit(arrChoice, C, SIZE);
-
     // Remove commenting to print the cost matrix
     /*
         cout<<"Cost matrix C:\n";
@@ -570,7 +560,6 @@ int main()
     cout << "Obj : " << obj << endl;
     outputFile << "Obj : " << obj << endl;
 
-    delete[] C;
     delete[] u;
     delete[] v;
     delete[] rows;
