@@ -383,12 +383,12 @@ int balinski_solve(int *C, int SIZE)
         print2DArray(C, SIZE);
     */
 
-    ofstream outputFile("BalinskiOutput.csv");
-    if (!outputFile.is_open())
-    {
-        cerr << "Error opening output.csv" << endl;
-        return 1;
-    }
+    // ofstream outputFile("BalinskiOutput.csv");
+    // if (!outputFile.is_open())
+    // {
+    //     cerr << "Error opening output.csv" << endl;
+    //     return 1;
+    // }
 
     int *u = new int[SIZE];        // Dual for row
     int *v = new int[SIZE];        // Dual for column
@@ -546,11 +546,11 @@ int balinski_solve(int *C, int SIZE)
 
     */
 
-    outputFile << "Cost matrix C:\n";
-    printfile2DArray(C, outputFile, SIZE);
+    // outputFile << "Cost matrix C:\n";
+    // printfile2DArray(C, outputFile, SIZE);
 
-    outputFile << "Assignment matrix X:\n";
-    printfile2DArray(X, outputFile, SIZE);
+    // outputFile << "Assignment matrix X:\n";
+    // printfile2DArray(X, outputFile, SIZE);
 
     int obj = 0;
     for (int i = 0; i < SIZE; i++)
@@ -558,7 +558,7 @@ int balinski_solve(int *C, int SIZE)
             obj += C[i * SIZE + j] * X[i * SIZE + j];
 
     cout << "Obj : " << obj << endl;
-    outputFile << "Obj : " << obj << endl;
+    // outputFile << "Obj : " << obj << endl;
 
     delete[] u;
     delete[] v;
