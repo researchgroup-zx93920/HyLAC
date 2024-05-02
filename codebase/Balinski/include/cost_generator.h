@@ -34,34 +34,40 @@ T *generate_cost(Config config, const int seed = 45345)
     {
       default_random_engine generator(seed + r);
       generator.discard(1);
-      uniform_int_distribution<T> distribution(0, range - 1);
+      // uniform_int_distribution<T> distribution(0, range - 1);
+      uniform_real_distribution<float> distribution(0.0f, static_cast<float>(range - 1)); // Made change here
       for (size_t c = 0; c < ncols; c++)
       {
         if (c < user_n && r < user_n)
         {
           double gen = distribution(generator);
+          // float gen = distribution(generator); // Made change here
           cost[user_n * r + c] = (T)gen;
+          // cost[user_n * r + c] = static_cast<T>(gen); // Made change here
         }
         else
         {
           if (c == r)
             cost[user_n * c + r] = 0;
           else
-            cost[user_n * c + r] = UINT32_MAX;
+            {
+              // cost[user_n * c + r] = UINT32_MAX;
+              cost[user_n * c + r] = static_cast<T>(UINT32_MAX); // Made change here
+            }
         }
       }
     }
   }
 
   // ********* print cost array *********
-  // for (uint i = 0; i < user_n; i++)
-  // {
-  //   for (uint j = 0; j < user_n; j++)
-  //   {
-  //     cout << cost[i * ncols + j] << " ";
-  //   }
-  //   cout << endl;
-  // }
+  for (uint i = 0; i < user_n; i++)
+  {
+    for (uint j = 0; j < user_n; j++)
+    {
+      cout << cost[i * ncols + j] << " ";
+    }
+    cout << endl;
+  }
 
   // ********* write cost array to csv file *********
   // ofstream out("matrix_test.csv");

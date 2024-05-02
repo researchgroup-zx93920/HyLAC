@@ -54,14 +54,14 @@ T *generate_cost(Config config, const int seed = 45345)
   }
 
   // ********* print cost array *********
-  // for (uint i = 0; i < user_n; i++)
-  // {
-  //   for (uint j = 0; j < user_n; j++)
-  //   {
-  //     cout << cost[i * ncols + j] << " ";
-  //   }
-  //   cout << endl;
-  // }
+  for (uint i = 0; i < user_n; i++)
+  {
+    for (uint j = 0; j < user_n; j++)
+    {
+      cout << cost[i * ncols + j] << " ";
+    }
+    cout << endl;
+  }
 
   // ********* write cost array to csv file *********
   // ofstream out("matrix_test.csv");
