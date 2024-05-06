@@ -403,8 +403,8 @@ int* bal_common(
         for (int j = 0; j < SIZE; j++)
             obj += C[i * SIZE + j] * X[i * SIZE + j];
 
-    cout<< "Counter : "<<counter<<endl;
-    cout << "Objective : " << obj << endl;
+    cout<< "Balinski Counter : "<<counter<<endl;
+    cout << "Balinski Objective : " << obj << endl;
 
     for (int i=0; i<SIZE; i++)
     {

@@ -2,7 +2,7 @@
 
 #define __DEBUG__
 #define MAX_DATA INT_MAX
-#define eps 1e-6
+#define eps 1e-4
 
 typedef unsigned long long int uint64;
 typedef unsigned int uint;

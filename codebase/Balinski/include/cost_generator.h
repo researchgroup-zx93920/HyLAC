@@ -3,6 +3,7 @@
 #include <omp.h>
 #include <thread>
 #include <fstream>
+#include <cmath>
 #include "config.h"
 #include "Timer.h"
 #include "logger.cuh"
@@ -59,15 +60,19 @@ T *generate_cost(Config config, const int seed = 45345)
     }
   }
 
+  for (uint i=0; i<user_n; i++)
+    for (uint j=0; j<user_n; j++)
+      cost[i*user_n +j] = floor(cost[i*user_n +j]*1000)/1000;
+
   // ********* print cost array *********
-  for (uint i = 0; i < user_n; i++)
-  {
-    for (uint j = 0; j < user_n; j++)
-    {
-      cout << cost[i * ncols + j] << " ";
-    }
-    cout << endl;
-  }
+  // for (uint i = 0; i < user_n; i++)
+  // {
+  //   for (uint j = 0; j < user_n; j++)
+  //   {
+  //     cout << cost[i * ncols + j] << " ";
+  //   }
+  //   cout << endl;
+  // }
 
   // ********* write cost array to csv file *********
   // ofstream out("matrix_test.csv");

@@ -8,6 +8,34 @@
 #include "../include/config.h"
 
 #include "../LAP/Balinski.cuh"
+#include "../LAP/Hungarian_init.cuh"
+
+float* noise_matrix(float *NC, float density, float noise, int SIZE)
+{
+  bool* sparsity = new bool[SIZE * SIZE];
+  random_device rd;
+  mt19937 gen(rd());
+  for(int i=0; i<SIZE*SIZE; i++)
+    sparsity[i] = 0;
+
+  int numElements = SIZE * SIZE;
+  int numOnes = numElements * density;
+  uniform_int_distribution<int> distribution(0, numElements - 1);
+  for (int i = 0; i < numOnes; ++i)
+  {
+    int index = distribution(gen);
+    sparsity[index] = 1;
+  }
+  uniform_real_distribution<float> disr(-noise, noise);
+  for (int i=0; i<SIZE*SIZE; i++)
+    NC[i] = disr(gen);
+  for (int i=0; i<SIZE*SIZE; i++)
+    NC[i] = NC[i]*sparsity[i];
+
+  delete[] sparsity;
+  return NC;
+
+}
 
 int main(int argc, char **argv)
 {
@@ -30,47 +58,63 @@ int main(int argc, char **argv)
   data *h_costs = arrInit(config);
 
   time = t.elapsed();
-  Log(debug, "cost generation time %f s", time);
+  Log(debug, "Cost generation time %f s", time);
   t.reset();
 
-  Log(debug, "LAP object generated succesfully");
+  Log(debug, "LAP object generated successfully");
+  cout<<"\n";
+  
   int *uvrow = balinski_solve(h_costs, user_n);
   time = t.elapsed();
-  Log(critical, "Initial solve time %f s", time);
+  Log(critical, "Balinski Initial solve time %f s", time);
   t.reset();
+  cout<<"\n";
 
+  uvrow = hung_seq_solve(h_costs, user_n);
+  time = t.elapsed();
+  Log(critical, "Hungarian Initial solve time %f s", time);
+  t.reset();
+  cout<<"\n";
 
   random_device rd;
   mt19937 gen(rd());
-  uniform_real_distribution<float> dis(-0.2f, 0.2f);
+
+  uniform_real_distribution<float> dis(-0.05f, 0.05f);
 
   float *NC = new float[user_n * user_n]; // Noise matrix
+  float n_start = 0.05f;
+  float n_end = 0.2f;
+  float n_step = 0.05f;
 
-  for (int i=0; i<20; i++)
+  for(float noise=n_start; noise<=n_end; noise+=n_step)
   {
-    for (int j = 0; j < user_n * user_n; ++j)
-      NC[j] = dis(gen);
-
-    if(disp_C==2)
+    float density = 0.0;
+    while (density <= 1.0)
     {
-      for (int j=0; j<user_n ; j++)
+      cout<<"Noise range : "<<noise*100<<" %"<<endl;
+      cout<<"Noise Density sparsity : "<<density*100<<" %"<<endl;
+      NC = noise_matrix(NC, density, noise, user_n);
+      if(disp_C==2)
       {
-        for (int k=0; k<user_n; k++)
-          cout<<NC[j*user_n + k]<<" ";
-        cout<<endl;
+        for (int j=0; j<user_n ; j++)
+        {
+          for (int k=0; k<user_n; k++)
+            cout<<NC[j*user_n + k]<<" ";
+          cout<<endl;
+        }
       }
-    }
+      time = t.elapsed();
+      Log(debug, "Noise generation time %f s", time);
+      t.reset();
 
-    time = t.elapsed();
-    Log(debug, "Noise generation time %f s", time);
-    t.reset();
-
-    uvrow = balinski_resolve(h_costs, user_n, uvrow, NC, precision);
+      uvrow = balinski_resolve(h_costs, user_n, uvrow, NC, precision);
     
-    time = t.elapsed();
-    Log(critical, "Resolve time %f s\n\n", time);
-    t.reset();
+      time = t.elapsed();
+      Log(critical, "Resolve time %f s\n\n", time);
+      t.reset();
 
+      density += 0.2;
+    }
   }
 
   delete [] uvrow;
