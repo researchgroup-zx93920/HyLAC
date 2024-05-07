@@ -56,6 +56,11 @@ int main(int argc, char **argv)
   Timer t;
 
   data *h_costs = arrInit(config);
+  
+  float *h_costs_copy = new float[user_n * user_n]; 
+
+  for (int i=0; i<user_n * user_n; i++)
+    h_costs_copy[i] = h_costs[i];
 
   time = t.elapsed();
   Log(debug, "Cost generation time %f s", time);
@@ -63,14 +68,16 @@ int main(int argc, char **argv)
 
   Log(debug, "LAP object generated successfully");
   cout<<"\n";
-  
+
+ /* 
   int *uvrow = balinski_solve(h_costs, user_n);
   time = t.elapsed();
   Log(critical, "Balinski Initial solve time %f s", time);
   t.reset();
   cout<<"\n";
+  */
 
-  uvrow = hung_seq_solve(h_costs, user_n);
+  int *uvrow = hung_seq_solve(h_costs, user_n);
   time = t.elapsed();
   Log(critical, "Hungarian Initial solve time %f s", time);
   t.reset();
@@ -85,6 +92,7 @@ int main(int argc, char **argv)
   float n_start = 0.05f;
   float n_end = 0.2f;
   float n_step = 0.05f;
+
 
   for(float noise=n_start; noise<=n_end; noise+=n_step)
   {
@@ -110,7 +118,25 @@ int main(int argc, char **argv)
       uvrow = balinski_resolve(h_costs, user_n, uvrow, NC, precision);
     
       time = t.elapsed();
-      Log(critical, "Resolve time %f s\n\n", time);
+      Log(critical, "Balinski Resolve time %f s\n", time);
+      t.reset();
+
+
+      for (int i=0; i<user_n * user_n; i++)
+        h_costs[i] = h_costs_copy[i];
+      time = t.elapsed();
+      Log(debug, "Cost matrix reinitialization time %f s\n", time);
+      t.reset();
+
+      uvrow = hung_seq_resolve(h_costs,user_n, NC, precision);
+      time = t.elapsed();
+      Log(critical, "Hungarian Resolve time %f s\n\n", time);
+      t.reset();
+
+      for (int i=0; i<user_n * user_n; i++)
+        h_costs[i] = h_costs_copy[i];
+      time = t.elapsed();
+      Log(debug, "Cost matrix reinitialization time %f s\n", time);
       t.reset();
 
       density += 0.2;

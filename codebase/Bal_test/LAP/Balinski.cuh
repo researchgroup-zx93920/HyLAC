@@ -484,7 +484,7 @@ int* balinski_resolve(float *C, int SIZE, int *uvrow, float *NC, int precision)
 
     for (int i=0; i<SIZE; i++)
         for (int j=0; j<SIZE; j++)
-            C[i*SIZE + j] += roundf(NC[i*SIZE + j] * C[i*SIZE + j]*pow(10,precision))/pow(10,precision);
+            C[i*SIZE + j] += floor(NC[i*SIZE + j] * C[i*SIZE + j]*pow(10,precision))/pow(10,precision);
     
     for (int i=0; i<SIZE; i++)
         for (int j=0; j<SIZE; j++)

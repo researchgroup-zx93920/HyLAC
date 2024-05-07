@@ -322,3 +322,147 @@ int* hung_seq_solve(float *C, int SIZE)
     return uvrowh;
 
 }
+
+int* hung_seq_resolve(float *C, int SIZE, float *NC, int precision)
+{
+    //srand(time(NULL));
+    
+
+    for (int i=0; i<SIZE; i++)
+        for (int j=0; j<SIZE; j++)
+            C[i*SIZE + j] += floor(NC[i*SIZE + j] * C[i*SIZE + j]*pow(10,precision))/pow(10,precision);
+
+    float *Original = new float[SIZE*SIZE];
+    for (int i=0; i<SIZE; i++)
+        for (int j=0; j<SIZE; j++)
+            Original[i*SIZE+j] = C[i*SIZE+j];
+    
+
+    
+    int *U = new int[SIZE];
+    int *V = new int[SIZE];
+    bool *Ubar = new bool[SIZE];
+    float *u = new float[SIZE];
+    float *v = new float[SIZE];
+    int *rows = new int[SIZE];
+    int *phi = new int[SIZE];
+    int *pred = new int[SIZE];
+    bool *SU = new bool[SIZE];
+    bool *SV = new bool[SIZE];
+    bool *LV = new bool[SIZE];
+
+    int *uvrowh = new int[SIZE * 3];     // Combined matrix for duals, assignment
+
+    for (int i = 0; i < SIZE; ++i)
+    {
+        Ubar[i] = SU[i] = SV[i] = LV[i] = 0;
+        u[i] = v[i] = rows[i] = phi[i] = pred[i] = -1;
+        U[i]=V[i]=i;
+    }
+    
+    rowReduction(C,u,v,SIZE);
+    float *slack = new float[SIZE*SIZE];
+    for(int i=0; i<SIZE; i++)
+        for(int j=0; j<SIZE; j++)
+        {
+            slack[i*SIZE+j] = C[i*SIZE+j];
+            C[i*SIZE+j] = Original[i*SIZE+j];
+        }
+
+    // Pre-processing
+    for (int i=0; i<SIZE; i++)
+        for (int j=0; j<SIZE; j++)
+            if(rows[j]==-1 && h_near_zero(slack[i*SIZE+j])==1)
+            {
+                rows[j]=i;
+                phi[i]=j;
+                Ubar[i]=1;
+                break;
+            }
+    int k = -1;
+    int counter = 0;
+    while(arrlength(Ubar, SIZE) < SIZE)
+    {
+        counter++;
+        if(counter>1000000)
+            break;
+        
+        for(int i=0; i<SIZE; i++)
+            if(Ubar[i]==0)
+            {
+                k = i;
+                break;
+            }
+        while(Ubar[k]==0)
+        {
+            int sink = alternate(k, C, u, v, rows, pred, SU, SV, LV, SIZE);
+            if(sink>-1)
+            {
+                Ubar[k]=1;
+                int b = sink;
+                int a = -1;
+                while (true)
+                {
+                    a = pred[b];
+                    rows[b] = a;
+                    int h = phi[a];
+                    phi[a] = b;
+                    b = h;
+                    if(a==k)
+                        break;
+                }
+            }
+            else
+            {
+                float delta = h_dmin(SU, LV, C, u, v, SIZE);
+                for(int i=0; i<SIZE; i++)
+                    if(SU[i]==1)
+                        u[i]+=delta;
+                
+                for(int j=0; j<SIZE; j++)
+                    if(LV[j]==1)
+                        v[j]-=delta;
+            }
+        }
+    }
+
+    bool *X = new bool[SIZE*SIZE];
+    for(int i=0; i<SIZE; i++)
+        for(int j=0; j<SIZE; j++)
+            X[i*SIZE+j]=0;
+    
+    for(int i=0; i<SIZE; i++)
+        X[rows[i]*SIZE+i] = 1;
+
+    int obj = 0;
+    for(int i=0; i<SIZE; i++)
+        for(int j=0; j<SIZE; j++)
+            obj+= C[i*SIZE+j]*X[i*SIZE+j];
+
+    cout<<"Hungarian Counter : "<<counter<<endl;
+    cout<<"Hungarian Objective : "<<obj<<endl;
+
+    for (int i=0; i<SIZE; i++)
+    {
+        uvrowh[i] = u[i];
+        uvrowh[i+SIZE]=v[i];
+        uvrowh[i+2*SIZE]=rows[i];
+    }
+
+    delete[] U;
+    delete[] V;
+    delete[] Ubar;
+    delete[] u;
+    delete[] v;
+    delete[] rows;
+    delete[] phi;
+    delete[] pred;
+    delete[] SU;
+    delete[] SV;
+    delete[] LV;
+    delete[] slack;
+    delete[] Original;
+
+    return uvrowh;
+
+}
