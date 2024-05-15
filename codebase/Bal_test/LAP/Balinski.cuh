@@ -299,7 +299,7 @@ int *bal_common(
 
     for (int i = 0; i < SIZE; i++)
         for (int j = 0; j < SIZE; j++)
-            if (slack[i * SIZE + j] - minval < eps)
+            if (slack[i * SIZE + j] <= minval)
             {
                 minval = slack[i * SIZE + j];
                 k = i;
@@ -310,12 +310,15 @@ int *bal_common(
 
     int counter = 0;
 
-    while (arrminval(slack, SIZE) < 0 && terminate == false)
+    while (arrminval(slack, SIZE) < -eps && terminate == false)
     {
         counter++;
-        if (counter > 1000000)
-            break;
-
+        if (counter % 1000 == 0)
+            cout << counter << endl;
+        else if (counter > 1e6)
+        {
+            exit(-1);
+        }
         bool path_found = alternating(k, l, SU, SV, LV, rows, pred, C, u, v, SIZE);
 
         if (path_found == true)
@@ -342,7 +345,7 @@ int *bal_common(
             minval = infi;
             for (int i = 0; i < SIZE; i++)
                 for (int j = 0; j < SIZE; j++)
-                    if (slack[i * SIZE + j] - minval < eps)
+                    if (slack[i * SIZE + j] <= minval)
                     {
                         minval = slack[i * SIZE + j];
                         k = i;
@@ -409,6 +412,15 @@ int *bal_common(
         uvrowc[i + 2 * SIZE] = rows[i];
     }
 
+    // cout << "\033[1;33m";
+    // cout<<"Balinski slack : \n";
+    // for (int i=0; i<SIZE; i++)
+    // {
+    //     for (int j=0; j<SIZE; j++)
+    //         cout<<C[i*SIZE+j]-u[i]-v[j]<<" ";
+    //     cout<<endl;
+    // }
+    // cout << "\033[0m";
     return uvrowc;
 }
 
