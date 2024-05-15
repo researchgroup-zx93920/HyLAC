@@ -20,7 +20,7 @@ float *arrInit(Config config)
 {
     int SIZE = config.user_n;
     int arrChoice = config.mode;
-    
+
     if (arrChoice == 0)
     {
         float *C;
@@ -31,13 +31,12 @@ float *arrInit(Config config)
     {
         SIZE = 4;
         float *C = new float[SIZE * SIZE];
-        
-        float values[SIZE][SIZE] =  {
-                                    {7, 9, 8, 9},
-                                    {2, 8, 5, 7},
-                                    {1, 6, 6, 9},
-                                    {3, 6, 2, 2}
-                                    };
+
+        float values[SIZE][SIZE] = {
+            {7, 9, 8, 9},
+            {2, 8, 5, 7},
+            {1, 6, 6, 9},
+            {3, 6, 2, 2}};
 
         for (int i = 0; i < SIZE; ++i)
             for (int j = 0; j < SIZE; ++j)
@@ -46,8 +45,8 @@ float *arrInit(Config config)
         for (int i = 0; i < SIZE; ++i)
         {
             for (int j = 0; j < SIZE; ++j)
-                cout<<C[i * SIZE + j] << " ";
-            cout<<endl;
+                cout << C[i * SIZE + j] << " ";
+            cout << endl;
         }
         return C;
     }
@@ -55,12 +54,11 @@ float *arrInit(Config config)
     {
         SIZE = 4;
         float *C = new float[SIZE * SIZE];
-        float values[SIZE][SIZE] =  {
-                                    {3, 8, 2, 1},
-                                    {2, 7, 5, 5},
-                                    {9, 8, 1, 2},
-                                    {1, 8, 5, 3}
-                                    };
+        float values[SIZE][SIZE] = {
+            {3, 8, 2, 1},
+            {2, 7, 5, 5},
+            {9, 8, 1, 2},
+            {1, 8, 5, 3}};
 
         for (int i = 0; i < SIZE; ++i)
             for (int j = 0; j < SIZE; ++j)
@@ -69,12 +67,11 @@ float *arrInit(Config config)
         for (int i = 0; i < SIZE; ++i)
         {
             for (int j = 0; j < SIZE; ++j)
-                cout<<C[i * SIZE + j] << " ";
-            cout<<endl;
+                cout << C[i * SIZE + j] << " ";
+            cout << endl;
         }
-        
-        return C;
 
+        return C;
     }
     else
         cerr << "Invalid choice!" << endl;
@@ -114,7 +111,7 @@ These 2 arrays are used to reset the values of pred for the paths that are not t
 bool bfs(int start, int end, bool *visited, float *C, float *u, float *v, int *rows, int *pred, int SIZE)
 {
     bool path_found = false;
-    int *phi = new int[SIZE];   // Used for backtracking. Index:Row and Value:Column 
+    int *phi = new int[SIZE]; // Used for backtracking. Index:Row and Value:Column
     for (int i = 0; i < SIZE; i++)
         phi[rows[i]] = i;
 
@@ -129,7 +126,7 @@ bool bfs(int start, int end, bool *visited, float *C, float *u, float *v, int *r
         int node = nodes_to_visit[current_index++];
         for (int j = 0; j < SIZE; j++)
             if (!visited[rows[j]])
-                if(near_zero(C[node * SIZE + j] - u[node] - v[j]) == 1)
+                if (near_zero(C[node * SIZE + j] - u[node] - v[j]) == 1)
                 {
                     visited[rows[j]] = true;
                     pred[j] = node;
@@ -201,7 +198,7 @@ bool alternating(int k, int l, bool *SU, bool *SV, bool *LV, int *rows, int *pre
         SU[i] = 1;
         for (int j = 0; j < SIZE; j++)
             if (LV[j] == 0)
-                if(near_zero(C[i * SIZE + j] - u[i] - v[j]) == 1)
+                if (near_zero(C[i * SIZE + j] - u[i] - v[j]) == 1)
                     LV[j] = 1;
 
         int remNodeCount = 0;
@@ -227,7 +224,7 @@ bool alternating(int k, int l, bool *SU, bool *SV, bool *LV, int *rows, int *pre
     if (i == k)
         path_found = true;
 
-    delete []visited;
+    delete[] visited;
     return path_found;
 }
 
@@ -249,26 +246,26 @@ float dmin(bool *SU, bool *LV, float *C, float *u, float *v, int SIZE)
     return minimum;
 }
 
-void initializeMemory   (float* &u, float* &v, 
-                        int* &rows, int* &pred, 
-                        bool* &SU, bool* &SV, bool* &LV, bool* &X, 
-                        float* &slack, int SIZE) 
+void initializeMemory(float *&u, float *&v,
+                      int *&rows, int *&pred,
+                      bool *&SU, bool *&SV, bool *&LV, bool *&X,
+                      float *&slack, int SIZE)
 {
-    u = new float[SIZE];         // Dual for row
-    v = new float[SIZE];         // Dual for column
-    rows = new int[SIZE];        // To keep track of assigned nodes. Indices: RHS, Values: LHS of Bipartite graph
-    pred = new int[SIZE];        // To keep track of new assignments
-    SU = new bool[SIZE];         // Nodes scanned on LHS of the bipartite graph
-    SV = new bool[SIZE];         // Nodes scanned on RHS of the bipartite graph
-    LV = new bool[SIZE];         // Bookkeeping to scan the nodes one by one on RHS
-    X = new bool[SIZE * SIZE];   // Assignment matrix
-    slack = new float[SIZE * SIZE];  // Reduced cost matrix
+    u = new float[SIZE];            // Dual for row
+    v = new float[SIZE];            // Dual for column
+    rows = new int[SIZE];           // To keep track of assigned nodes. Indices: RHS, Values: LHS of Bipartite graph
+    pred = new int[SIZE];           // To keep track of new assignments
+    SU = new bool[SIZE];            // Nodes scanned on LHS of the bipartite graph
+    SV = new bool[SIZE];            // Nodes scanned on RHS of the bipartite graph
+    LV = new bool[SIZE];            // Bookkeeping to scan the nodes one by one on RHS
+    X = new bool[SIZE * SIZE];      // Assignment matrix
+    slack = new float[SIZE * SIZE]; // Reduced cost matrix
 }
 
-void cleanupMemory  (float* &u, float* &v, 
-                    int* &rows, int* &pred, 
-                    bool* &SU, bool* &SV, bool* &LV, bool* &X, 
-                    float* &slack)
+void cleanupMemory(float *&u, float *&v,
+                   int *&rows, int *&pred,
+                   bool *&SU, bool *&SV, bool *&LV, bool *&X,
+                   float *&slack)
 {
     delete[] u;
     delete[] v;
@@ -281,19 +278,19 @@ void cleanupMemory  (float* &u, float* &v,
     delete[] slack;
 }
 
-int* bal_common(
-    float *C, float *u, float *v, int SIZE, float *slack, 
+int *bal_common(
+    float *C, float *u, float *v, int SIZE, float *slack,
     bool *SU, bool *SV, bool *LV,
     bool *X, int *rows, int *pred)
 {
     int *uvrowc = new int[SIZE * 3];
-    for (int i=0; i<SIZE; i++)
+    for (int i = 0; i < SIZE; i++)
         SU[i] = SV[i] = LV[i] = 0;
 
     float checksum = 0;
-    for (int i=0; i<SIZE*SIZE; i++)
+    for (int i = 0; i < SIZE * SIZE; i++)
         checksum += C[i];
-    cout<<"Check avg : "<<checksum/(SIZE*SIZE)<<endl;
+    cout << "Check avg : " << checksum / (SIZE * SIZE) << endl;
 
     float delta = -1;
     float minval = infi;
@@ -302,7 +299,7 @@ int* bal_common(
 
     for (int i = 0; i < SIZE; i++)
         for (int j = 0; j < SIZE; j++)
-            if (slack[i * SIZE + j] - minval < eps)
+            if (slack[i * SIZE + j] <= minval)
             {
                 minval = slack[i * SIZE + j];
                 k = i;
@@ -313,12 +310,15 @@ int* bal_common(
 
     int counter = 0;
 
-    while (arrminval(slack, SIZE) < 0 && terminate == false)
+    while (arrminval(slack, SIZE) < -eps && terminate == false)
     {
         counter++;
-        if(counter>1000000)
-            break;
-
+        if (counter % 1000 == 0)
+            cout << counter << endl;
+        else if (counter > 1e6)
+        {
+            exit(-1);
+        }
         bool path_found = alternating(k, l, SU, SV, LV, rows, pred, C, u, v, SIZE);
 
         if (path_found == true)
@@ -331,7 +331,7 @@ int* bal_common(
             for (int i = 0; i < SIZE; i++)
                 for (int j = 0; j < SIZE; j++)
                     X[i * SIZE + j] = 0;
-            
+
             for (int i = 0; i < SIZE; i++)
                 X[rows[i] * SIZE + i] = 1;
 
@@ -345,7 +345,7 @@ int* bal_common(
             minval = infi;
             for (int i = 0; i < SIZE; i++)
                 for (int j = 0; j < SIZE; j++)
-                    if (slack[i * SIZE + j] -minval < eps)
+                    if (slack[i * SIZE + j] <= minval)
                     {
                         minval = slack[i * SIZE + j];
                         k = i;
@@ -393,9 +393,8 @@ int* bal_common(
                         }
                 if (slack[k * SIZE + l] >= eps)
                     terminate = true;
-
             }
-        }        
+        }
     }
 
     float obj = 0.0;
@@ -403,30 +402,38 @@ int* bal_common(
         for (int j = 0; j < SIZE; j++)
             obj += C[i * SIZE + j] * X[i * SIZE + j];
 
-    cout<< "Balinski Counter : "<<counter<<endl;
+    cout << "Balinski Counter : " << counter << endl;
     cout << "Balinski Objective : " << obj << endl;
 
-    for (int i=0; i<SIZE; i++)
+    for (int i = 0; i < SIZE; i++)
     {
         uvrowc[i] = u[i];
-        uvrowc[i+SIZE]=v[i];
-        uvrowc[i+2*SIZE]=rows[i];
+        uvrowc[i + SIZE] = v[i];
+        uvrowc[i + 2 * SIZE] = rows[i];
     }
 
+    // cout << "\033[1;33m";
+    // cout<<"Balinski slack : \n";
+    // for (int i=0; i<SIZE; i++)
+    // {
+    //     for (int j=0; j<SIZE; j++)
+    //         cout<<C[i*SIZE+j]-u[i]-v[j]<<" ";
+    //     cout<<endl;
+    // }
+    // cout << "\033[0m";
     return uvrowc;
 }
 
-int* balinski_solve(float *C, int SIZE)
+int *balinski_solve(float *C, int SIZE)
 {
     float *u, *v;
     int *rows, *pred;
     bool *SU, *SV, *LV, *X;
     float *slack;
-    initializeMemory    (u, v, rows, pred, 
-                        SU, SV, LV, X, slack, SIZE);
+    initializeMemory(u, v, rows, pred,
+                     SU, SV, LV, X, slack, SIZE);
 
-    
-    int *uvrow = new int[SIZE * 3];     // Combined matrix for duals, assignment
+    int *uvrow = new int[SIZE * 3]; // Combined matrix for duals, assignment
 
     /*
     Initializing row dual = 0 and column dual = diagonal elements of C
@@ -452,25 +459,24 @@ int* balinski_solve(float *C, int SIZE)
             slack[i * SIZE + j] = C[i * SIZE + j] - u[i] - v[j];
     }
 
-    uvrow = bal_common  (C, u, v, SIZE, slack, 
-                        SU, SV, LV, 
-                        X, rows, pred);
+    uvrow = bal_common(C, u, v, SIZE, slack,
+                       SU, SV, LV,
+                       X, rows, pred);
 
     cleanupMemory(u, v, rows, pred, SU, SV, LV, X, slack);
 
     return uvrow;
-
 }
 
-int* balinski_resolve(float *C, int SIZE, int *uvrow, float *NC, int precision)
+int *balinski_resolve(float *C, int SIZE, int *uvrow, float *NC, int precision)
 {
     float *u, *v;
     int *rows, *pred;
     bool *SU, *SV, *LV, *X;
     float *slack;
 
-    initializeMemory    (u, v, rows, pred, 
-                        SU, SV, LV, X, slack, SIZE);
+    initializeMemory(u, v, rows, pred,
+                     SU, SV, LV, X, slack, SIZE);
 
     /*
     Adding noise to the new Cost Matrix and preserving original
@@ -478,17 +484,17 @@ int* balinski_resolve(float *C, int SIZE, int *uvrow, float *NC, int precision)
     float *origC = new float[SIZE * SIZE];
     float *deltaC = new float[SIZE * SIZE];
 
-    for (int i=0; i<SIZE; i++)
-        for (int j=0; j<SIZE; j++)
-            origC[i*SIZE +j] = C[i*SIZE +j];
+    for (int i = 0; i < SIZE; i++)
+        for (int j = 0; j < SIZE; j++)
+            origC[i * SIZE + j] = C[i * SIZE + j];
 
-    for (int i=0; i<SIZE; i++)
-        for (int j=0; j<SIZE; j++)
-            C[i*SIZE + j] += floor(NC[i*SIZE + j] * C[i*SIZE + j]*pow(10,precision))/pow(10,precision);
-    
-    for (int i=0; i<SIZE; i++)
-        for (int j=0; j<SIZE; j++)
-            deltaC[i*SIZE +j] = C[i*SIZE +j] - origC[i*SIZE +j];
+    for (int i = 0; i < SIZE; i++)
+        for (int j = 0; j < SIZE; j++)
+            C[i * SIZE + j] += floor(NC[i * SIZE + j] * C[i * SIZE + j] * pow(10, precision)) / pow(10, precision);
+
+    for (int i = 0; i < SIZE; i++)
+        for (int j = 0; j < SIZE; j++)
+            deltaC[i * SIZE + j] = C[i * SIZE + j] - origC[i * SIZE + j];
 
     /*
     Retrieve old duals and assignments
@@ -496,8 +502,8 @@ int* balinski_resolve(float *C, int SIZE, int *uvrow, float *NC, int precision)
     for (int i = 0; i < SIZE; i++)
     {
         u[i] = uvrow[i];
-        v[i] = uvrow[i+SIZE];
-        rows[i] = uvrow[i+2*SIZE];
+        v[i] = uvrow[i + SIZE];
+        rows[i] = uvrow[i + 2 * SIZE];
         pred[i] = rows[i];
         for (int j = 0; j < SIZE; j++)
         {
@@ -508,8 +514,8 @@ int* balinski_resolve(float *C, int SIZE, int *uvrow, float *NC, int precision)
 
     for (int i = 0; i < SIZE; i++)
     {
-        u[rows[i]] += ceil(deltaC[rows[i]*SIZE+i]/2*pow(10,precision))/pow(10,precision);
-        v[i] += floor(deltaC[rows[i]*SIZE+i]/2*pow(10,precision))/pow(10,precision);
+        u[rows[i]] += ceil(deltaC[rows[i] * SIZE + i] / 2 * pow(10, precision)) / pow(10, precision);
+        v[i] += floor(deltaC[rows[i] * SIZE + i] / 2 * pow(10, precision)) / pow(10, precision);
     }
 
     for (int i = 0; i < SIZE; i++)
@@ -519,12 +525,11 @@ int* balinski_resolve(float *C, int SIZE, int *uvrow, float *NC, int precision)
             slack[i * SIZE + j] = C[i * SIZE + j] - u[i] - v[j];
     }
 
-    uvrow = bal_common  (C, u, v, SIZE, slack, 
-                        SU, SV, LV, 
-                        X, rows, pred);
+    uvrow = bal_common(C, u, v, SIZE, slack,
+                       SU, SV, LV,
+                       X, rows, pred);
 
     cleanupMemory(u, v, rows, pred, SU, SV, LV, X, slack);
 
     return uvrow;
-
 }
