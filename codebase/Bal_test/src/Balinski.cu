@@ -10,12 +10,12 @@
 #include "../LAP/Balinski.cuh"
 #include "../LAP/Hungarian_init.cuh"
 
-float* noise_matrix(float *NC, float density, float noise, int SIZE)
+float *noise_matrix(float *NC, float density, float noise, int SIZE)
 {
-  bool* sparsity = new bool[SIZE * SIZE];
+  bool *sparsity = new bool[SIZE * SIZE];
   random_device rd;
   mt19937 gen(rd());
-  for(int i=0; i<SIZE*SIZE; i++)
+  for (int i = 0; i < SIZE * SIZE; i++)
     sparsity[i] = 0;
 
   int numElements = SIZE * SIZE;
@@ -27,14 +27,13 @@ float* noise_matrix(float *NC, float density, float noise, int SIZE)
     sparsity[index] = 1;
   }
   uniform_real_distribution<float> disr(-noise, noise);
-  for (int i=0; i<SIZE*SIZE; i++)
+  for (int i = 0; i < SIZE * SIZE; i++)
     NC[i] = disr(gen);
-  for (int i=0; i<SIZE*SIZE; i++)
-    NC[i] = NC[i]*sparsity[i];
+  for (int i = 0; i < SIZE * SIZE; i++)
+    NC[i] = NC[i] * sparsity[i];
 
   delete[] sparsity;
   return NC;
-
 }
 
 int main(int argc, char **argv)
@@ -56,10 +55,10 @@ int main(int argc, char **argv)
   Timer t;
 
   data *h_costs = arrInit(config);
-  
-  float *h_costs_copy = new float[user_n * user_n]; 
 
-  for (int i=0; i<user_n * user_n; i++)
+  float *h_costs_copy = new float[user_n * user_n];
+
+  for (int i = 0; i < user_n * user_n; i++)
     h_costs_copy[i] = h_costs[i];
 
   time = t.elapsed();
@@ -67,21 +66,21 @@ int main(int argc, char **argv)
   t.reset();
 
   Log(debug, "LAP object generated successfully");
-  cout<<"\n";
+  cout << "\n";
 
- /* 
-  int *uvrow = balinski_solve(h_costs, user_n);
-  time = t.elapsed();
-  Log(critical, "Balinski Initial solve time %f s", time);
-  t.reset();
-  cout<<"\n";
-  */
+  /*
+   int *uvrow = balinski_solve(h_costs, user_n);
+   time = t.elapsed();
+   Log(critical, "Balinski Initial solve time %f s", time);
+   t.reset();
+   cout<<"\n";
+   */
 
   int *uvrow = hung_seq_solve(h_costs, user_n);
   time = t.elapsed();
   Log(critical, "Hungarian Initial solve time %f s", time);
   t.reset();
-  cout<<"\n";
+  cout << "\n";
 
   random_device rd;
   mt19937 gen(rd());
@@ -93,22 +92,21 @@ int main(int argc, char **argv)
   float n_end = 0.2f;
   float n_step = 0.05f;
 
-
-  for(float noise=n_start; noise<=n_end; noise+=n_step)
+  for (float noise = n_start; noise <= n_end; noise += n_step)
   {
     float density = 0.0;
     while (density <= 1.0)
     {
-      cout<<"Noise range : "<<noise*100<<" %"<<endl;
-      cout<<"Noise Density sparsity : "<<density*100<<" %"<<endl;
+      cout << "Noise range : " << noise * 100 << " %" << endl;
+      cout << "Noise Density sparsity : " << density * 100 << " %" << endl;
       NC = noise_matrix(NC, density, noise, user_n);
-      if(disp_C==2)
+      if (disp_C == 2)
       {
-        for (int j=0; j<user_n ; j++)
+        for (int j = 0; j < user_n; j++)
         {
-          for (int k=0; k<user_n; k++)
-            cout<<NC[j*user_n + k]<<" ";
-          cout<<endl;
+          for (int k = 0; k < user_n; k++)
+            cout << NC[j * user_n + k] << " ";
+          cout << endl;
         }
       }
       time = t.elapsed();
@@ -116,24 +114,23 @@ int main(int argc, char **argv)
       t.reset();
 
       uvrow = balinski_resolve(h_costs, user_n, uvrow, NC, precision);
-    
+
       time = t.elapsed();
       Log(critical, "Balinski Resolve time %f s\n", time);
       t.reset();
 
-
-      for (int i=0; i<user_n * user_n; i++)
+      for (int i = 0; i < user_n * user_n; i++)
         h_costs[i] = h_costs_copy[i];
       time = t.elapsed();
       Log(debug, "Cost matrix reinitialization time %f s\n", time);
       t.reset();
 
-      uvrow = hung_seq_resolve(h_costs,user_n, NC, precision);
+      uvrow = hung_seq_resolve(h_costs, user_n, NC, precision);
       time = t.elapsed();
       Log(critical, "Hungarian Resolve time %f s\n\n", time);
       t.reset();
 
-      for (int i=0; i<user_n * user_n; i++)
+      for (int i = 0; i < user_n * user_n; i++)
         h_costs[i] = h_costs_copy[i];
       time = t.elapsed();
       Log(debug, "Cost matrix reinitialization time %f s\n", time);
@@ -143,7 +140,7 @@ int main(int argc, char **argv)
     }
   }
 
-  delete [] uvrow;
-  delete [] NC;
+  delete[] uvrow;
+  delete[] NC;
   delete[] h_costs;
 }
