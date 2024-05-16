@@ -78,8 +78,8 @@ int main(int argc, char **argv)
   CUDA_RUNTIME(cudaMalloc((void **)&Dcol_duals, nprob * user_n * sizeof(int)));
   CUDA_RUNTIME(cudaMalloc((void **)&Dobj, nprob * 1 * sizeof(data)));
 
-  TLAP<data> *tlap1 = new TLAP<data>(nprob, user_n, dev);
-  tlap1->solve(d_tcosts, Drow_ass, Drow_duals, Dcol_duals, Dobj);
+  TLAP<data> *tlap = new TLAP<data>(nprob, user_n, dev);
+  tlap->solve(d_tcosts, Drow_ass, Drow_duals, Dcol_duals, Dobj);
 
   // printDebugMatrix<data>(d_tcosts, user_n, user_n, "cost matrix");
   // printDebugArray<data>(Drow_duals, user_n, "row duals");
