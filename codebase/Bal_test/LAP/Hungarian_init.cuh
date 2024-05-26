@@ -186,9 +186,8 @@ float h_dmin(bool *SU, bool *LV, float *C, float *u, float *v, int SIZE)
     return minimum;
 }
 
-int *hung_seq_solve(float *C, int SIZE)
+float *hung_seq_solve(float *C, int SIZE)
 {
-    // srand(time(NULL));
     float *Original = new float[SIZE * SIZE];
     for (int i = 0; i < SIZE; i++)
         for (int j = 0; j < SIZE; j++)
@@ -206,7 +205,7 @@ int *hung_seq_solve(float *C, int SIZE)
     bool *SV = new bool[SIZE];
     bool *LV = new bool[SIZE];
 
-    int *uvrowh = new int[SIZE * 3]; // Combined matrix for duals, assignment
+    float *uvrowh = new float[SIZE * 3];
 
     for (int i = 0; i < SIZE; ++i)
     {
@@ -289,13 +288,32 @@ int *hung_seq_solve(float *C, int SIZE)
     for (int i = 0; i < SIZE; i++)
         X[rows[i] * SIZE + i] = 1;
 
-    int obj = 0;
+    float obj = 0.0;
     for (int i = 0; i < SIZE; i++)
-        for (int j = 0; j < SIZE; j++)
-            obj += C[i * SIZE + j] * X[i * SIZE + j];
+        obj += C[rows[i] * SIZE + i];
 
+    cout << "\033[1;32m";
     cout << "Hungarian Counter : " << counter << endl;
     cout << "Hungarian Objective : " << obj << endl;
+    cout << "\033[0m";
+
+    // cout << "\033[1;33m";
+    // cout << "rows HUNG: ";
+    // for (int i = 0; i < SIZE; i++)
+    //     cout << rows[i] << " ";
+    // cout << endl;
+
+    // cout << "u HUNG: ";
+    // for (int i = 0; i < SIZE; i++)
+    //     cout << u[i] << " ";
+    // cout << endl;
+
+    // cout << "v HUNG: ";
+    // for (int i = 0; i < SIZE; i++)
+    //     cout << v[i] << " ";
+    // cout << endl;
+
+    // cout << "\033[0m";
 
     for (int i = 0; i < SIZE; i++)
     {
@@ -321,13 +339,23 @@ int *hung_seq_solve(float *C, int SIZE)
     return uvrowh;
 }
 
-int *hung_seq_resolve(float *C, int SIZE, float *NC, int precision)
+int hung_seq_resolve(float *C, int SIZE, float *NC, int precision, int disp_C)
 {
-    // srand(time(NULL));
 
     for (int i = 0; i < SIZE; i++)
         for (int j = 0; j < SIZE; j++)
             C[i * SIZE + j] += floor(NC[i * SIZE + j] * C[i * SIZE + j] * pow(10, precision)) / pow(10, precision);
+
+    if (disp_C == 2)
+    {
+        cout << "New C Matrix : " << endl;
+        for (int i = 0; i < SIZE; i++)
+        {
+            for (int j = 0; j < SIZE; j++)
+                cout << C[i * SIZE + j] << " ";
+            cout << endl;
+        }
+    }
 
     float *Original = new float[SIZE * SIZE];
     for (int i = 0; i < SIZE; i++)
@@ -345,8 +373,6 @@ int *hung_seq_resolve(float *C, int SIZE, float *NC, int precision)
     bool *SU = new bool[SIZE];
     bool *SV = new bool[SIZE];
     bool *LV = new bool[SIZE];
-
-    int *uvrowh = new int[SIZE * 3]; // Combined matrix for duals, assignment
 
     for (int i = 0; i < SIZE; ++i)
     {
@@ -429,20 +455,21 @@ int *hung_seq_resolve(float *C, int SIZE, float *NC, int precision)
     for (int i = 0; i < SIZE; i++)
         X[rows[i] * SIZE + i] = 1;
 
-    int obj = 0;
+    float obj = 0.0;
     for (int i = 0; i < SIZE; i++)
-        for (int j = 0; j < SIZE; j++)
-            obj += C[i * SIZE + j] * X[i * SIZE + j];
+        obj += C[rows[i] * SIZE + i];
 
+    cout << "\033[1;32m";
     cout << "Hungarian Counter : " << counter << endl;
     cout << "Hungarian Objective : " << obj << endl;
+    cout << "\033[0m";
 
-    for (int i = 0; i < SIZE; i++)
-    {
-        uvrowh[i] = u[i];
-        uvrowh[i + SIZE] = v[i];
-        uvrowh[i + 2 * SIZE] = rows[i];
-    }
+    // cout << "\033[1;33m";
+    // cout << "rows : ";
+    // for (int i = 0; i < SIZE; i++)
+    //     cout << rows[i] << " ";
+    // cout << endl;
+    // cout << "\033[0m";
 
     delete[] U;
     delete[] V;
@@ -458,5 +485,5 @@ int *hung_seq_resolve(float *C, int SIZE, float *NC, int precision)
     delete[] slack;
     delete[] Original;
 
-    return uvrowh;
+    return 0;
 }
