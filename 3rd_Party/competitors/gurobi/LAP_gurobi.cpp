@@ -55,14 +55,16 @@ int main(int argc, char **argv)
         }
         // cout << endl;
     }
-    // for (int i = 0; i < N; i++)
-    // {
-    //     for (int k = 0; k < N; k++)
-    //     {
-    //         cout << C[N * i + k] << "\t";
-    //     }
-    //     cout << endl;
-    // }
+
+    cout << "C : \n";
+    for (int i = 0; i < N; i++)
+    {
+        for (int k = 0; k < N; k++)
+        {
+            cout << C[N * i + k] << "\t";
+        }
+        cout << endl;
+    }
 
     try
     {
