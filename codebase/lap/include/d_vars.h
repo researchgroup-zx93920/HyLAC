@@ -11,9 +11,9 @@
 #define D_VARS_H_
 
 #define MAX_GRIDSIZE 65535
-//#define INF 100000001
+// #define INF 100000001
 #define BIG_NUMBER 100000001
-#define EPSILON 0.0001
+#define eps 0.0001
 
 #define SEED 24071987
 

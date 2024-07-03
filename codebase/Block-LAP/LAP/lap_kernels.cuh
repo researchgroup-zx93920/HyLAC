@@ -105,7 +105,7 @@ fundef void row_sub(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh) // with single b
 
 fundef bool near_zero(data val)
 {
-  return ((val < epsilon) && (val > -epsilon));
+  return ((val < eps) && (val > -eps));
 }
 
 fundef void compress_matrix(GLOBAL_HANDLE<data> &gh, SHARED_HANDLE &sh) // with single block

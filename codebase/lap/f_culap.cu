@@ -533,7 +533,7 @@ __global__ void kernel_dynamicUpdate(int *d_row_assignments, int *d_col_assignme
 			double col_dual = d_col_duals[COLID];
 			double slack = cost - row_dual - col_dual;
 
-			if (slack < -EPSILON || slack > EPSILON)
+			if (slack < -eps || slack > eps)
 				d_row_assignments[ROWID] = -1;
 			else
 				d_col_assignments[COLID] = rowid;
@@ -569,7 +569,7 @@ __global__ void kernel_computeInitialAssignments(double *d_costs, double *d_row_
 			double row_dual = d_row_duals[ROWID];
 			double slack = cost - row_dual - col_dual;
 
-			if (slack > -EPSILON && slack < EPSILON)
+			if (slack > -eps && slack < eps)
 			{
 				if (atomicCAS(&d_row_lock[ROWID], 0, 1) == 0)
 				{
@@ -624,7 +624,7 @@ __global__ void kernel_edgePredicateConstructionCSR(Predicates d_edge_predicates
 		double col_dual = d_col_duals[COLID];
 		double slack = cost - row_dual - col_dual;
 
-		bool predicate = (slack > -EPSILON && slack < EPSILON);
+		bool predicate = (slack > -eps && slack < eps);
 		long addr = predicate ? 1 : 0;
 
 		d_edge_predicates_csr.predicates[ID] = predicate; // Copy the predicate matrix back to global memory
