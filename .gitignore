@@ -2,7 +2,7 @@
 *.DS_Store
 
 # Scratch
-Scratch/**
+Scratch*/**
 
 # JetBrains
 .idea
@@ -14,3 +14,4 @@ Scratch/**
 .vscode/**
 Sandbox/**
 3rd_Party/tests/**
+codebase/**/*.txt
