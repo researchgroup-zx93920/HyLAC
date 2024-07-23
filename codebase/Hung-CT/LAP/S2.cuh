@@ -8,7 +8,7 @@
 template <typename data>
 __device__ bool near_zero(data val)
 {
-  return ((val < epsilon) && (val > -epsilon));
+  return ((val < eps) && (val > -eps));
 }
 
 __global__ void init(int *row_ass, int *col_ass, int *row_cover, int *col_cover)

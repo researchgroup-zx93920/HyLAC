@@ -41,7 +41,7 @@ namespace tree
       {
         col_duals[id] += min_val;
         col_slacks[id] -= (data)(2 * min_val);
-        if (col_slacks[id] > -epsilon && col_slacks[id] < epsilon)
+        if (col_slacks[id] > -eps && col_slacks[id] < eps)
         {
           int par_rowid = col_parents[id];
           row_visited[par_rowid] = ACTIVE;

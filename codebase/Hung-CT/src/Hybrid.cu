@@ -27,8 +27,7 @@ int main(int argc, char **argv)
 
   double time;
   Timer t;
-  // data *h_costs = generate_cost<data>(config, seed);
-  data *h_costs = generate_geo_cost<data>(config, seed);
+  data *h_costs = generate_cost<data>(config, seed);
   time = t.elapsed_and_reset();
   Log(debug, "cost generation time %f s", time);
 

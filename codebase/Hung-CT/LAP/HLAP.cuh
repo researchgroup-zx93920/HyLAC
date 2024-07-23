@@ -107,7 +107,7 @@ public:
       Timer t1;
       // if (decision(match_trend) && first)
       // if (nmatch_cur < 52000)
-      if (true)
+      if (true) // Always perform classical
         S456_classical();
       else
       {
@@ -134,7 +134,7 @@ public:
     execKernel(get_obj, gridDim, BLOCK_DIMX, devID, false,
                row_ass, d_costs, objective);
     printf("Obj val: %u\n", (uint)*objective);
-    Log(info, "Pre %u, post %u, DA %u, Total %u\n", g_pre_DA_counts, g_post_DA_counts, g_DA_counts, g_pre_DA_counts + g_post_DA_counts);
+    // Log(info, "Pre %u, post %u, DA %u, Total %u\n", g_pre_DA_counts, g_post_DA_counts, g_DA_counts, g_pre_DA_counts + g_post_DA_counts);
   }
 
 private:
@@ -544,7 +544,7 @@ private:
   bool decision(std::vector<int> match_trend)
   {
     // S1
-    // return (match_trend.back() > 1);
+    return (match_trend.back() > 1);
 
     // S2, S3
     // static int count;
@@ -557,18 +557,18 @@ private:
 
     // S4
     // Log(critical, "match trend size %u", match_trend.size());
-    if (match_trend.size() > 5)
-    {
-      int last5 = 0;
-      for (int i = 0; i < 5; i++)
-      {
-        last5 += match_trend.at(match_trend.size() - i - 1);
-        // Log(info, "total: %d", total);
-      }
-      return last5 >= 10; // S4
-      // return total >= 30; // S5
-    }
-    else
-      return true;
+    // if (match_trend.size() > 5)
+    // {
+    //   int last5 = 0;
+    //   for (int i = 0; i < 5; i++)
+    //   {
+    //     last5 += match_trend.at(match_trend.size() - i - 1);
+    //     // Log(info, "total: %d", total);
+    //   }
+    //   return last5 >= 10; // S4
+    //   // return total >= 30; // S5
+    // }
+    // else
+    //   return true;
   }
 };
