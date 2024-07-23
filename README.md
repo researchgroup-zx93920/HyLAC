@@ -1,6 +1,6 @@
 # **HyLAC** - **Hy**brid **L**inear **A**ssignment solver in **CUDA**
 
-<!-- Insert a bullet list of highlights -->
+<!-- Insert index with links to individual headings -->
 
 ## Highlights
 
@@ -22,12 +22,81 @@ We also provide the solver at different granularity levels:
 - **Block-LAP**: Solves a single LAP with a single thread block (block kernel launch or a device function).
 - **Warp-LAP**: Solves a single LAP with a single warp (warp kernel launch or a device function) _[In development]_.
 
+## Navigate
+
+[Installation](#installation) \
+[Usage](#usage) \
+[Example code](#example-code) \
+[Using inside existing workflow](#using-inside-existing-workflow) \
+[Reference](#reference)
+
+## Installation
+
+### Hardware and software requirements
+
+- NVIDIA GPU with CUDA compute capability 6.0 or higher
+- CUDA Toolkit 10.0 or higher (Need to add cub seperately if cuda toolkit version < 11.0)
+- nvcc compiler with C++11 support
+
+### Compiling the code
+
+- Clone the repository
+- Go to the codebase directory
+- In each directory, run `make clean all` to compile the code with the makefile provided in that directory. The default architecture version used in each makefile is 80. Change it according to your GPU architecture. \
+  Do not know the architecture of your GPU? Check [here](https://developer.nvidia.com/cuda-gpus).
+
 ## Usage
 
-## Keywords
+#### Case 1: Solving single LAP (Fine-grained solver) [Hung-Hybrid branch]
 
-Hungarian algorithm, Linear assignment problem, GPU-accelerated graph algorithms, High-performance computing, Parallel algorithm.
+For solving with the classical solver: go to `codebase/Hung/` \
+For solving with the Hybrid solver: go to `codebase/Hung-CT/`
+
+```
+Usage: [options]
+-n <size of the problem> [required]
+-f <range-fraction> [default: 1]   (%This is used to control the sparsity of the problem)
+-d <deviceId [default: 0]
+-s <seed-value> [default: 45345]
+
+% For stream solver
+-t size of the stream [required]
+```
+
+## Example code
+
+### Solving a single LAP with the classical solver:
+
+#### Terminal commands
+
+```
+cd codebase/Hung/
+make clean all
+./build/exe/src/Hung.cu.exe -n 1000 -f 10 -d 0
+```
+
+#### Sample output
+
+```
+Welcome ---------------------
+  size: 10000
+  frac: 1.000000
+  Device: 0
+  seed value: 45345
+[22:54:18] cost generation time 0.067608 s
+[22:54:18] LAP object generated succesfully
+Obj val: 18543
+[22:54:18] solve time 0.448983 s
+```
+
+## Using inside existing workflow
+
+The library has been made into a class. for the classical solver, use the LAP class: can generate new object instance using the constructor `LAP<data> *lap = new LAP<data>(h_costs, user_n, dev)` and solve the LAP using `lap->solve()`. h_costs is the cost matrix (on host memory), user_n is the size of the problem, and dev is the device id.
 
 ### Reference
 
 Samiran Kawtikwar and Rakesh Nagi. 2024. HyLAC: Hybrid linear assignment solver in CUDA. Journal of Parallel and Distributed Computing 187, (May 2024), 104838. https://doi.org/10.1016/j.jpdc.2024.104838
+
+### Keywords
+
+Hungarian algorithm, Linear assignment problem, GPU-accelerated graph algorithms, High-performance computing, Parallel algorithm.

@@ -14,8 +14,8 @@ OBJS := $(SRCS:%=$(BUILD_DIR)/obj/%.o)
 EXES := $(SRCS:%=$(BUILD_DIR)/exe/%.exe)
 DEBUG_OBJS := $(SRCS:%=$(BUILD_DIR)/debug_objs/%.o)
 DEBUG_EXES := $(SRCS:%=$(BUILD_DIR)/debug_exes/%.exe)
-DEPS := $(OBJS:.o=.d)
-ARCH := $(shell ~/get_SM.sh)
+ARCH := 80
+# ARCH := $(shell ~/get_SM.sh)
 
 
 INCL_DIRS := #./include $(FREESTAND_DIR)/include 
