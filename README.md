@@ -35,8 +35,9 @@ We also provide the solver at different granularity levels:
 ### Hardware and software requirements
 
 - NVIDIA GPU with CUDA compute capability 6.0 or higher
-- CUDA Toolkit 10.0 or higher (Need to add cub seperately if cuda toolkit version < 11.0)
-- nvcc compiler with C++11 support
+- CUDA Toolkit 10.0 or higher (Need to add cub separately if CUDA toolkit version < 11.0)
+- NVCC compiler with C++11 support
+- Linux environment (should work on Windows, but not tested; WSL should work)
 
 ### Compiling the code
 
@@ -89,9 +90,9 @@ Obj val: 18543
 [22:54:18] solve time 0.448983 s
 ```
 
-## Using inside existing workflow
+## Using inside an existing workflow
 
-The library has been made into a class. for the classical solver, use the LAP class: can generate new object instance using the constructor `LAP<data> *lap = new LAP<data>(h_costs, user_n, dev)` and solve the LAP using `lap->solve()`. h_costs is the cost matrix (on host memory), user_n is the size of the problem, and dev is the device id.
+The library has been made into a class. for the classical solver, use the LAP class: can generate new object instance using the constructor `LAP<data> *lap = new LAP<data>(h_costs, user_n, dev)` and solve the LAP using `lap->solve()`. h_costs is the cost matrix (on host memory), user_n is the size of the problem, and dev is the device ID.
 
 ### Reference
 
